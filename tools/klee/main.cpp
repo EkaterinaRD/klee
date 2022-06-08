@@ -284,6 +284,7 @@ namespace {
 
 namespace klee {
 extern cl::opt<std::string> MaxTime;
+extern cl::opt<bool> ExternalCallsAsm;
 class ExecutionState;
 }
 
@@ -909,6 +910,8 @@ void externalsAndGlobalsCheck(const llvm::Module *m) {
        fnIt != fn_ie; ++fnIt) {
     if (fnIt->isDeclaration() && !fnIt->use_empty())
       externals.insert(std::make_pair(fnIt->getName(), false));
+    if (ExternalCallsAsm)
+      continue;
     for (Function::const_iterator bbIt = fnIt->begin(), bb_ie = fnIt->end();
          bbIt != bb_ie; ++bbIt) {
       for (BasicBlock::const_iterator it = bbIt->begin(), ie = bbIt->end();

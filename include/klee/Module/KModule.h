@@ -53,7 +53,6 @@ namespace klee {
     /// "coverable" for statistics and search heuristics.
     bool trackCoverage;
 
-  public:
     explicit KFunction(llvm::Function*, KModule *);
     KFunction(const KFunction &) = delete;
     KFunction &operator=(const KFunction &) = delete;

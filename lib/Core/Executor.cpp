@@ -37,6 +37,7 @@
 #include "klee/Expr/ExprUtil.h"
 #include "klee/Module/Cell.h"
 #include "klee/Module/InstructionInfoTable.h"
+#include "klee/Module/KCallable.h"
 #include "klee/Module/KInstruction.h"
 #include "klee/Module/KModule.h"
 #include "klee/Solver/Common.h"
@@ -62,6 +63,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
@@ -121,6 +123,13 @@ cl::opt<std::string> MaxTime(
              "Set to 0s to disable (default=0s)"),
     cl::init("0s"),
     cl::cat(TerminationCat));
+
+
+cl::opt<bool> ExternalCallsAsm(
+    "asm-external-calls",
+    cl::init(false),
+    cl::desc("Allows inline assmebly call (default=false)"),
+    cl::cat(ExtCallsCat));
 } // namespace klee
 
 namespace {
@@ -208,7 +217,6 @@ cl::opt<bool> AllExternalWarnings(
     cl::desc("Issue a warning everytime an external call is made, "
              "as opposed to once per function (default=false)"),
     cl::cat(ExtCallsCat));
-
 
 /*** Seeding options ***/
 
@@ -2392,16 +2400,23 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     unsigned numArgs = cs.arg_size();
     Function *f = getTargetFunction(fp, state);
 
-    if (isa<InlineAsm>(fp)) {
-      terminateStateOnExecError(state, "inline assembly is unsupported");
-      break;
-    }
     // evaluate arguments
     std::vector< ref<Expr> > arguments;
     arguments.reserve(numArgs);
 
     for (unsigned j=0; j<numArgs; ++j)
       arguments.push_back(eval(ki, j+1, state).value);
+
+    if (isa<InlineAsm>(fp)) {
+      if (ExternalCallsAsm) {
+        InlineAsm *asmValue = cast<InlineAsm>(fp);
+        callExternalFunction(state, ki, asmValue, arguments);
+      } else {
+        klee_warning("Inline assembly disallowed (asm-external-calls=false)");
+        terminateStateOnExecError(state, "inline assembly external calls disallowed");
+      }
+      break;
+    }
 
     if (f) {
       const FunctionType *fType = 
@@ -3780,16 +3795,17 @@ static std::set<std::string> okExternals(okExternalsList,
 
 void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
-                                    Function *function,
+                                    KCallable callable,
                                     std::vector< ref<Expr> > &arguments) {
   // check if specialFunctionHandler wants it
-  if (specialFunctionHandler->handle(state, function, target, arguments))
+  if (callable.isFunction() &&
+      specialFunctionHandler->handle(state, callable.getFunction(), target, arguments))
     return;
 
   if (ExternalCalls == ExternalCallPolicy::None &&
-      !okExternals.count(function->getName().str())) {
+      !okExternals.count(callable.getName().str())) {
     klee_warning("Disallowed call to external function: %s\n",
-               function->getName().str().c_str());
+               callable.getName().str().c_str());
     terminateStateOnUserError(state, "external calls disallowed");
     return;
   }
@@ -3831,7 +3847,7 @@ void Executor::callExternalFunction(ExecutionState &state,
       } else {
         terminateStateOnExecError(state,
                                   "external call with symbolic argument: " +
-                                  function->getName());
+                                  callable.getName());
         return;
       }
     }
@@ -3852,7 +3868,7 @@ void Executor::callExternalFunction(ExecutionState &state,
   if (!errnoValue) {
     terminateStateOnExecError(state,
                               "external call with errno value symbolic: " +
-                                  function->getName());
+                                  callable.getName());
     return;
   }
 
@@ -3864,7 +3880,7 @@ void Executor::callExternalFunction(ExecutionState &state,
 
     std::string TmpStr;
     llvm::raw_string_ostream os(TmpStr);
-    os << "calling external: " << function->getName().str() << "(";
+    os << "calling external: " << callable.getName().str() << "(";
     for (unsigned i=0; i<arguments.size(); i++) {
       os << arguments[i];
       if (i != arguments.size()-1)
@@ -3874,13 +3890,18 @@ void Executor::callExternalFunction(ExecutionState &state,
     
     if (AllExternalWarnings)
       klee_warning("%s", os.str().c_str());
-    else
-      klee_warning_once(function, "%s", os.str().c_str());
+    else {
+      const void* id = callable.getFunction();
+      if (!id) {
+        id = callable.getInlineAsm();
+      }
+      klee_warning_once(id, "%s", os.str().c_str());
+    }
   }
 
-  bool success = externalDispatcher->executeCall(function, target->inst, args);
+  bool success = externalDispatcher->executeCall(callable, target->inst, args);
   if (!success) {
-    terminateStateOnError(state, "failed external call: " + function->getName(),
+    terminateStateOnError(state, "failed external call: " + callable.getName(),
                           StateTerminationType::External);
     return;
   }
@@ -3899,7 +3920,7 @@ void Executor::callExternalFunction(ExecutionState &state,
 #endif
 
   Type *resultType = target->inst->getType();
-  if (resultType != Type::getVoidTy(function->getContext())) {
+  if (resultType != Type::getVoidTy(callable.getContext())) {
     ref<Expr> e = ConstantExpr::fromMemory((void*) args, 
                                            getWidthForLLVMType(resultType));
     bindLocal(target, state, e);
