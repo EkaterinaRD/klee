@@ -1,3 +1,12 @@
+//===-- KCallable.h ---------------------------------------------*- C++ -*-===//
+//
+//                     The KLEE Symbolic Virtual Machine
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef KLEE_KCALLABLE_H
 #define KLEE_KCALLABLE_H
 
@@ -10,8 +19,10 @@ namespace llvm {
 }
 
 namespace klee {
+  /// Wrapper for callable objects passed in callExternalFunction
   class KCallable {
   private:
+    /// Global counter to create unique names
     static unsigned globalAsmId;
 
     union {
