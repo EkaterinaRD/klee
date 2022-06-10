@@ -21,12 +21,14 @@ unsigned KCallable::globalAsmId = 0;
 
 KCallable::KCallable(Function *func) : func(func), isFunc(true) {}
 KCallable::KCallable(InlineAsm *asmValue)
-    : asmValue(asmValue), asmId(globalAsmId++), isFunc(false) {}
+    : asmValue(asmValue), asmId(globalAsmId++), isFunc(false) {
+  asmName = "__asm__" + Twine(asmId).str();
+}
 
 StringRef KCallable::getName() const {
   if (isFunc)
     return func->getName();
-  return "__asm__" + Twine(asmId).str();
+  return asmName;
 }
 
 Function *KCallable::getFunction() {

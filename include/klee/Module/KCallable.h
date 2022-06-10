@@ -10,6 +10,8 @@
 #ifndef KLEE_KCALLABLE_H
 #define KLEE_KCALLABLE_H
 
+#include <string>
+
 namespace llvm {
   class Function;
   class InlineAsm;
@@ -30,9 +32,11 @@ namespace klee {
       struct {
         llvm::InlineAsm* asmValue;
         unsigned asmId;
+        char* name;
       };
     };
     bool isFunc;
+    std::string asmName;
   public:
     KCallable(llvm::Function*);
     KCallable(llvm::InlineAsm*);
