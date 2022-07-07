@@ -27,6 +27,9 @@
 #include <set>
 #include <vector>
 #include <unordered_set>
+#include <klee/Misc/json.hpp>
+
+using json = nlohmann::json;
 
 namespace klee {
 class Array;
@@ -289,6 +292,9 @@ public:
   void addConstraint(ref<Expr> e);
 
   bool merge(const ExecutionState &b);
+  // {{UTBotCpp
+  json createSARIF() const;
+  // }}UTBotCpp
   void dumpStack(llvm::raw_ostream &out) const;
 
   std::uint32_t getID() const { return id; };
@@ -305,5 +311,12 @@ struct ExecutionStateIDCompare {
   }
 };
 }
+
+// {{UTBotCpp
+namespace sarif {
+  json createLocationObj();
+  json createSarifResultTemplate();
+}
+// }}UTBotCpp
 
 #endif /* KLEE_EXECUTIONSTATE_H */

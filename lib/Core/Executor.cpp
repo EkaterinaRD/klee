@@ -4226,12 +4226,18 @@ void Executor::terminateStateOnError(ExecutionState &state,
 
     std::string MsgString;
     llvm::raw_string_ostream msg(MsgString);
+
+    json json_output = state.createSARIF();
     msg << "Error: " << message << '\n';
     if (ii.file != "") {
       msg << "File: " << ii.file << '\n'
           << "Line: " << ii.line << '\n'
           << "assembly.ll line: " << ii.assemblyLine << '\n'
           << "State: " << state.getID() << '\n';
+      json location = sarif::createLocationObj();
+      location["physicalLocation"]["artifactLocation"]["uri"] = ii.file;
+      location["physicalLocation"]["region"]["startLine"] = ii.line;
+      json_output["locations"].push_back(location);
     }
     msg << "Stack: \n";
     state.dumpStack(msg);
@@ -4246,6 +4252,22 @@ void Executor::terminateStateOnError(ExecutionState &state,
       suffix_buf += ".err";
       suffix = suffix_buf.c_str();
     }
+
+    json_output["message"]["text"] = message;
+    json_output["level"] = "error";
+    json_output["ruleId"] = suffix;
+    std::string json_file = interpreterHandler->getOutputFilename(
+        "__sarif_"
+        + interpreterHandler->getTestFilename("json",
+                                              interpreterHandler->getNumTestCases() + 1));
+
+    std::ofstream fout(json_file);
+    if (!fout.is_open()) {
+        assert(false);
+    }
+
+    fout << std::setw(2) << json_output << std::endl;
+    fout.close();
 
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
   }

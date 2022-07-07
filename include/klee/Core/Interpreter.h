@@ -14,6 +14,9 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <klee/Misc/json.hpp>
+
+using json = nlohmann::json;
 
 struct KTest;
 struct TestCase;
@@ -36,6 +39,10 @@ class InterpreterHandler {
 public:
   InterpreterHandler() {}
   virtual ~InterpreterHandler() {}
+
+  virtual unsigned getNumTestCases() = 0;
+
+  virtual std::string getTestFilename(const std::string &suffix, unsigned id) = 0;
 
   virtual llvm::raw_ostream &getInfoStream() const = 0;
 

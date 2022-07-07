@@ -383,6 +383,62 @@ bool ExecutionState::merge(const ExecutionState &b) {
   return true;
 }
 
+namespace sarif {
+json createLocationObj() {
+  return "{}"_json;
+//  return R"(
+//    {
+//      "physicalLocation" : {
+//        "artifactLocation" : {
+//          "uri" : {}
+//        },
+//        "region" : {
+//          "startLine" : {}
+//        }
+//      }
+//    })"_json;
+}
+
+json createSarifResultTemplate() {
+  return "{}"_json;
+//  return R"(
+//    {
+//       "message" : {
+//         "text"  : {}
+//       },
+//       "ruleId" : {},
+//       "level" : {},
+//       "locations" : [],
+//       "codeFlows": [
+//         {
+//           "threadFlows": [
+//             {
+//               "locations": []
+//             }
+//           ]
+//         }
+//        ]
+//    })"_json;
+}
+}
+
+json ExecutionState::createSARIF() const {
+  json SERIF = sarif::createSarifResultTemplate();
+  json &locations = SERIF["codeFlows"][0]["threadFlows"][0]["locations"];
+  for (StackFrame frame : stack) {
+    if (frame.caller) {
+      const InstructionInfo *ii = frame.caller->info;
+      json location = sarif::createLocationObj();
+      location["location"]["physicalLocation"]["artifactLocation"]["uri"] =
+          ii->file;
+      location["location"]["physicalLocation"]["region"]["startLine"] =
+          ii->line;
+      locations.push_back(location);
+    }
+  }
+  return SERIF;
+}
+
 void ExecutionState::dumpStack(llvm::raw_ostream &out) const {
   unsigned idx = 0;
   const KInstruction *target = prevPC;
