@@ -26,6 +26,8 @@ klee_add_component(kleeCore
   StatsTracker.cpp
   TimingSolver.cpp
   UserSearcher.cpp
+  
+  StateManager.cpp
 )
 
 # TODO: Work out what the correct LLVM components are for
