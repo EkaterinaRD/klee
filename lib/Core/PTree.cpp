@@ -36,6 +36,15 @@ PTree::PTree(ExecutionState *initialState)
   initialState->ptreeNode = root.getPointer();
 }
 
+void PTree::update(ExecutionState *current,
+                        const std::vector<ExecutionState *> &addedStates,
+                        const std::vector<ExecutionState *> &removedStates) {
+  for (auto it : removedStates) {
+      ExecutionState *es = it;
+      remove(es->ptreeNode);
+    }
+}
+
 void PTree::attach(PTreeNode *node, ExecutionState *leftState, ExecutionState *rightState) {
   assert(node && !node->left.getPointer() && !node->right.getPointer());
   assert(node == rightState->ptreeNode &&

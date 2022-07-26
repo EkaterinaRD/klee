@@ -561,7 +561,7 @@ void RandomPathSearcher::update(ExecutionState *current,
       auto childPtr =
           parent ? ((parent->left.getPointer() == pnode) ? &parent->left
                                                          : &parent->right)
-                 : &processTree.root;
+                 : &processTree.root;       
       assert(IS_OUR_NODE_VALID(*childPtr) && "Removing pTree child not ours");
       childPtr->setInt(childPtr->getInt() & ~idBitMask);
       pnode = parent;

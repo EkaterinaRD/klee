@@ -12,6 +12,9 @@
 
 #include "ExecutionState.h"
 #include "PTree.h"
+
+#include "Subscriber.h"
+
 #include "klee/ADT/RNG.h"
 #include "klee/System/Time.h"
 
@@ -37,7 +40,7 @@ namespace klee {
 
   /// A Searcher implements an exploration strategy for the Executor by selecting
   /// states for further exploration using different strategies or heuristics.
-  class Searcher {
+  class Searcher : public Subscriber {
   public:
     virtual ~Searcher() = default;
 

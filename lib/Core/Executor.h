@@ -18,6 +18,9 @@
 #include "ExecutionState.h"
 #include "UserSearcher.h"
 
+#include "StateManager.h"
+#include "SeedMap.h"
+
 #include "klee/ADT/RNG.h"
 #include "klee/Core/Interpreter.h"
 #include "klee/Expr/ArrayCache.h"
@@ -137,6 +140,10 @@ public:
   RNG theRNG;
 
 private:
+
+  StateManager stateManager;
+  SeedMap *_seedMap;
+
   static const char *TerminateReasonNames[];
   /* Set of Intrinsic::ID. Plain type is used here to avoid including llvm in the header */
   static const std::unordered_set <llvm::Intrinsic::ID> supportedFPIntrinsics;
@@ -148,7 +155,7 @@ private:
   ExternalDispatcher *externalDispatcher;
   TimingSolver *solver;
   MemoryManager *memory;
-  std::set<ExecutionState*, ExecutionStateIDCompare> states;
+  //std::set<ExecutionState*, ExecutionStateIDCompare> states;
   std::set<ExecutionState*, ExecutionStateIDCompare> pausedStates;
   StatsTracker *statsTracker;
   TreeStreamWriter *pathWriter, *symPathWriter;
@@ -161,12 +168,12 @@ private:
   /// instructions step. 
   /// \invariant \ref addedStates is a subset of \ref states. 
   /// \invariant \ref addedStates and \ref removedStates are disjoint.
-  std::vector<ExecutionState *> addedStates;
+  //std::vector<ExecutionState *> addedStates;
   /// Used to track states that have been removed during the current
   /// instructions step. 
   /// \invariant \ref removedStates is a subset of \ref states. 
   /// \invariant \ref addedStates and \ref removedStates are disjoint.
-  std::vector<ExecutionState *> removedStates;
+  //std::vector<ExecutionState *> removedStates;
 
   /// When non-empty the Executor is running in "seed" mode. The
   /// states in this map will be executed in an arbitrary order
@@ -175,7 +182,7 @@ private:
   /// satisfies one or more seeds will be added to this map. What
   /// happens with other states (that don't satisfy the seeds) depends
   /// on as-yet-to-be-determined flags.
-  std::map<ExecutionState*, std::vector<SeedInfo> > seedMap;
+  //std::map<ExecutionState*, std::vector<SeedInfo> > seedMap;
   
   /// Map of globals to their representative memory object.
   std::map<const llvm::GlobalValue*, MemoryObject*> globalObjects;

@@ -554,7 +554,8 @@ void StatsTracker::writeStatsLine() {
   sqlite3_bind_int64(insertStmt, 3, partialBranches);
   sqlite3_bind_int64(insertStmt, 4, numBranches);
   sqlite3_bind_int64(insertStmt, 5, time::getUserTime().toMicroseconds());
-  sqlite3_bind_int64(insertStmt, 6, executor.states.size());
+  sqlite3_bind_int64(insertStmt, 6, executor.stateManager.sizeStates());
+  //sqlite3_bind_int64(insertStmt, 6, executor.states.size());
   sqlite3_bind_int64(insertStmt, 7, util::GetTotalMallocUsage() + executor.memory->getUsedDeterministicSize());
   sqlite3_bind_int64(insertStmt, 8, stats::queries);
   sqlite3_bind_int64(insertStmt, 9, stats::queryConstructs);
@@ -591,14 +592,21 @@ void StatsTracker::writeStatsLine() {
 }
 
 void StatsTracker::updateStateStatistics(uint64_t addend) {
-  for (std::set<ExecutionState*>::iterator it = executor.states.begin(),
+  for (auto &state : *executor.stateManager.getStates()) {
+    const InstructionInfo &ii = *state->pc->info;
+    theStatisticManager->incrementIndexedValue(stats::states, ii.id, addend);
+    if (UseCallPaths)
+      state->stack.back().callPathNode->statistics.incrementValue(stats::states, addend);
+  }
+  
+  /*for (std::set<ExecutionState*>::iterator it = executor.states.begin(),
          ie = executor.states.end(); it != ie; ++it) {
     ExecutionState &state = **it;
     const InstructionInfo &ii = *state.pc->info;
     theStatisticManager->incrementIndexedValue(stats::states, ii.id, addend);
     if (UseCallPaths)
       state.stack.back().callPathNode->statistics.incrementValue(stats::states, addend);
-  }
+  }*/
 }
 
 void StatsTracker::writeIStats() {
@@ -1018,7 +1026,28 @@ void StatsTracker::computeReachableUncovered() {
     }
   } while (changed);
 
-  for (std::set<ExecutionState*>::iterator it = executor.states.begin(),
+  for (auto &state : *executor.stateManager.getStates()) {
+    ExecutionState *es = state;
+    uint64_t currentFrameMinDist = 0;
+    for (ExecutionState::stack_ty::iterator sfIt = es->stack.begin(),
+           sf_ie = es->stack.end(); sfIt != sf_ie; ++sfIt) {
+      ExecutionState::stack_ty::iterator next = sfIt + 1;
+      KInstIterator kii;
+
+      if (next==es->stack.end()) {
+        kii = es->pc;
+      } else {
+        kii = next->caller;
+        ++kii;
+      }
+      
+      sfIt->minDistToUncoveredOnReturn = currentFrameMinDist;
+      
+      currentFrameMinDist = computeMinDistToUncovered(kii, currentFrameMinDist);
+    }
+  }
+
+  /*for (std::set<ExecutionState*>::iterator it = executor.states.begin(),
          ie = executor.states.end(); it != ie; ++it) {
     ExecutionState *es = *it;
     uint64_t currentFrameMinDist = 0;
@@ -1038,5 +1067,5 @@ void StatsTracker::computeReachableUncovered() {
       
       currentFrameMinDist = computeMinDistToUncovered(kii, currentFrameMinDist);
     }
-  }
+  }*/
 }

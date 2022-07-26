@@ -10,6 +10,8 @@
 #ifndef KLEE_PTREE_H
 #define KLEE_PTREE_H
 
+#include "Subscriber.h"
+
 #include "klee/Expr/Expr.h"
 #include "klee/Support/ErrorHandling.h"
 #include "llvm/ADT/PointerIntPair.h"
@@ -38,11 +40,15 @@ namespace klee {
     ~PTreeNode() = default;
   };
 
-  class PTree {
+  class PTree final : public Subscriber {
     // Number of registered ID
     int registeredIds = 0;
 
   public:
+    void update(ExecutionState *current,
+                        const std::vector<ExecutionState *> &addedStates,
+                        const std::vector<ExecutionState *> &removedStates) override;
+    
     PTreeNodePtr root;
     explicit PTree(ExecutionState *initialState);
     ~PTree() = default;
