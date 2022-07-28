@@ -39,20 +39,15 @@ void SeedMap::erase(std::map<ExecutionState*, std::vector<SeedInfo> >::iterator 
 }
 
 void SeedMap::erase(ExecutionState *state) {
-    seedMap.erase(state);
+  seedMap.erase(state);
 }
 
 void SeedMap::push_back(ExecutionState *result, std::vector<SeedInfo>::iterator siit) {
-    seedMap[result].push_back(*siit);
+  seedMap.at(result).push_back(*siit);
 }
 
-/*bool SeedMap::check(ExecutionState *state) {
-  bool result = state && !seedMap.count[state]; 
-  return result;
-}*/
-
-std::vector<SeedInfo> &SeedMap::getVector(ExecutionState *state) {
-  return seedMap[state];
+std::vector<SeedInfo> &SeedMap::at(ExecutionState *state) {
+  return seedMap.at(state);
 }
 
 std::size_t SeedMap::count(ExecutionState *state) {

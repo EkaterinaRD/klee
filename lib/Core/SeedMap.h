@@ -24,11 +24,10 @@ public:
   std::map<ExecutionState*, std::vector<SeedInfo> >::iterator begin();
   std::map<ExecutionState*, std::vector<SeedInfo> >::iterator end();
   //переименовать
-  std::vector<SeedInfo> &getVector(ExecutionState *state);
+  std::vector<SeedInfo> &at(ExecutionState *state);
   void erase(std::map<ExecutionState*, std::vector<SeedInfo> >::iterator it);
   void erase(ExecutionState *state);
   void push_back(ExecutionState *result, std::vector<SeedInfo>::iterator siit);
-  //bool check(ExecutionState *state);
   std::size_t count(ExecutionState *state);
 };
 } // namespace klee

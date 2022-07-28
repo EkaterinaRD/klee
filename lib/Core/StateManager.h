@@ -13,18 +13,27 @@ class StateManager
 {
 private:
   std::vector<Subscriber *> subscribers;
+  std::vector<Subscriber *> subscribersAfterAll;
 
   std::set<ExecutionState*, ExecutionStateIDCompare> states;
+  /// Used to track states that have been added during the current
+  /// instructions step. 
+  /// \invariant \ref addedStates is a subset of \ref states. 
+  /// \invariant \ref addedStates and \ref removedStates are disjoint.
   std::vector<ExecutionState *> addedStates;
+  /// Used to track states that have been removed during the current
+  /// instructions step. 
+  /// \invariant \ref removedStates is a subset of \ref states. 
+  /// \invariant \ref addedStates and \ref removedStates are disjoint.
   std::vector<ExecutionState *> removedStates;
 public:
-  StateManager(/* args */);
+  StateManager();
 
   void subscribe(Subscriber *s);
+  void subscribeAfterAll(Subscriber *s);
   void unsubscribe(Subscriber *s);
 
-  void insertState(ExecutionState *state);
-  std::vector<ExecutionState *> copyStates();
+  void copyStatesTo(std::vector<ExecutionState *> &stateList);
   bool emptyStates();
   int sizeStates();
   
@@ -33,7 +42,7 @@ public:
   void updateStates(ExecutionState *state);
 
   //переименовать
-  const std::set<ExecutionState*, ExecutionStateIDCompare>* getStates();
+  const std::set<ExecutionState*, ExecutionStateIDCompare> &getStates();
 
   ~StateManager();
 };

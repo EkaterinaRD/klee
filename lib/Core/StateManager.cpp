@@ -2,28 +2,34 @@
 
 using namespace klee;
 
-StateManager::StateManager(/* args */) {}
+StateManager::StateManager() {}
 
 void StateManager::subscribe(Subscriber *s) {
   subscribers.push_back(s);
 }
 
+void StateManager::subscribeAfterAll(Subscriber *s) {
+  subscribersAfterAll.push_back(s);
+}
+
 void StateManager::unsubscribe(Subscriber *s) {
   auto it = std::find(subscribers.begin(), subscribers.end(), s);
-  subscribers.erase(it);
+  if (it != subscribers.end()) {
+    subscribers.erase(it);
+  } else {
+    auto it2 = std::find(subscribersAfterAll.begin(), subscribersAfterAll.end(), s);
+    if (it2 != subscribersAfterAll.end()) {
+      subscribersAfterAll.erase(it2);
+    }
+  }
 }
 
-void StateManager::insertState(ExecutionState *state) {
-  states.insert(state);
-}
-
-std::vector<ExecutionState *> StateManager::copyStates() {
-  std::vector<ExecutionState *> tmp(states.begin(), states.end());
-  return tmp;
+void StateManager::copyStatesTo(std::vector<ExecutionState *> &stateList) {
+  stateList.insert(stateList.begin(), states.begin(), states.end());
 }
 
 bool StateManager::emptyStates() {
-    return states.empty();
+  return states.empty();
 }
 
 int StateManager::sizeStates() {
@@ -49,9 +55,10 @@ bool StateManager::removeState(ExecutionState &state) {
 
 void StateManager::updateStates(ExecutionState *state) {
   for (auto s : subscribers) {
-    /*if (s) {
-      s->update(state, addedStates, removedStates);
-    }*/
+    s->update(state, addedStates, removedStates);
+  }
+
+  for (auto s : subscribersAfterAll) {
     s->update(state, addedStates, removedStates);
   }
 
@@ -71,8 +78,8 @@ void StateManager::updateStates(ExecutionState *state) {
     removedStates.clear();
 }
 
-const std::set<ExecutionState*, ExecutionStateIDCompare>* StateManager::getStates() {
-  return &states;
+const std::set<ExecutionState*, ExecutionStateIDCompare> &StateManager::getStates() {
+  return states;
 }
 
 StateManager::~StateManager() {}

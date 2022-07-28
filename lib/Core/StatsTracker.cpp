@@ -592,7 +592,7 @@ void StatsTracker::writeStatsLine() {
 }
 
 void StatsTracker::updateStateStatistics(uint64_t addend) {
-  for (auto &state : *executor.stateManager.getStates()) {
+  for (auto &state : executor.stateManager.getStates()) {
     const InstructionInfo &ii = *state->pc->info;
     theStatisticManager->incrementIndexedValue(stats::states, ii.id, addend);
     if (UseCallPaths)
@@ -1026,7 +1026,7 @@ void StatsTracker::computeReachableUncovered() {
     }
   } while (changed);
 
-  for (auto &state : *executor.stateManager.getStates()) {
+  for (auto &state : executor.stateManager.getStates()) {
     ExecutionState *es = state;
     uint64_t currentFrameMinDist = 0;
     for (ExecutionState::stack_ty::iterator sfIt = es->stack.begin(),
