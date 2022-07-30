@@ -47,7 +47,7 @@ void SeedMap::push_back(ExecutionState *result, std::vector<SeedInfo>::iterator 
 }
 
 std::vector<SeedInfo> &SeedMap::at(ExecutionState *state) {
-  return seedMap.at(state);
+  return seedMap[state];
 }
 
 std::size_t SeedMap::count(ExecutionState *state) {
