@@ -329,8 +329,6 @@ private:
   void stepInstruction(ExecutionState &state);
 
   void updateResult(ref<ActionResult>);
-  void removeState(ExecutionState *state);
-  void removeIsolatedState(ExecutionState *state);
 
   void transferToBasicBlock(llvm::BasicBlock *dst, llvm::BasicBlock *src,
                             ExecutionState &state);
@@ -744,7 +742,6 @@ public:
   void addErroneousResult(ExecutionState &state);
   void addHistoryResult(ExecutionState &state);
 
-  void pauseState(ExecutionState &state);
   void pauseRedundantState(ExecutionState &state);
   void unpauseState(ExecutionState &state);
 

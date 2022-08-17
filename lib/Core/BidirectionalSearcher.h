@@ -40,6 +40,8 @@ private:
   enum class StepKind { Initialize, Forward, Branch, Backward, Terminate };
 
   Executor *ex; // hack
+  std::vector<ExecutionState *> pausedStates;
+  void pauseState(ExecutionState *state, BidirectionalSearcher::StepKind stepKind);
 
   GuidedSearcher *forward;
   GuidedSearcher *branch;
@@ -93,6 +95,8 @@ public:
 
 private:
   Executor *ex; // hack
+  std::vector<ExecutionState *> pausedStates;
+  void pauseState(ExecutionState *state);
   std::unique_ptr<GuidedSearcher> searcher;
 };
 

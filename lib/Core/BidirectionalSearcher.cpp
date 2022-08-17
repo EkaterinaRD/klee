@@ -97,6 +97,21 @@ BidirectionalSearcher::StepKind BidirectionalSearcher::selectStep() {
   return StepKind::Terminate;
 }
 
+void BidirectionalSearcher::pauseState(ExecutionState *state, BidirectionalSearcher::StepKind stepKind) {
+  switch (stepKind) {
+  case StepKind::Forward:
+    forward->update(nullptr, {}, {state});
+    break;
+  case StepKind::Branch:
+    branch->update(nullptr, {}, {state});
+    break;
+  default:
+    break;
+  }
+  assert(std::find(pausedStates.begin(), pausedStates.end(), state) == pausedStates.end());
+  pausedStates.push_back(state);
+}
+
 ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
   ref<BidirectionalAction> action;
   while (action.isNull()) {
@@ -122,8 +137,9 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
           forward->update(&state, {}, {});
           action = new ForwardAction(&state);
         } else {
-          forward->update(nullptr, {}, {&state});
-          ex->pauseState(state);
+          /*forward->update(nullptr, {}, {&state});
+          ex->pauseState(state);*/
+          pauseState(&state, StepKind::Forward);
         }
       } else
         action = new ForwardAction(&state);
@@ -136,8 +152,9 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
       if (ex->initialState->getInitPCBlock() != state.getInitPCBlock() &&
           prevKI->inst->isTerminator() &&
           state.multilevel.count(state.getPCBlock()) > 0) {
-        branch->update(nullptr, {}, {&state});
-        ex->pauseState(state);
+        /*branch->update(nullptr, {}, {&state});
+        ex->pauseState(state);*/
+        pauseState(&state, StepKind::Branch);
       } else {
         action = new BranchAction(&state);
       }
@@ -244,13 +261,37 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
   switch (r->getKind()) {
   case ActionResult::Kind::Forward: {
     auto fr = cast<ForwardResult>(r);
-    updateForward(fr->current, fr->addedStates, fr->removedStates,
-                  fr->targetedConflict);
+    if (std::find(pausedStates.begin(), pausedStates.end(), fr->current) == pausedStates.end()) {
+      std::vector<ExecutionState *> newRemovedStates;
+      for (auto rState : fr->removedStates) {
+        auto itr = std::find(pausedStates.begin(), pausedStates.end(), rState);
+        if (itr != pausedStates.end()) {
+          pausedStates.erase(itr);
+        } else {
+          newRemovedStates.push_back(rState);
+        }
+      }
+      updateForward(fr->current, fr->addedStates, newRemovedStates, fr->targetedConflict);
+    }
+    //updateForward(fr->current, fr->addedStates, fr->removedStates,
+    //              fr->targetedConflict);
     break;
   }
   case ActionResult::Kind::Branch: {
     auto brr = cast<BranchResult>(r);
-    updateBranch(brr->current, brr->addedStates, brr->removedStates);
+    if (std::find(pausedStates.begin(), pausedStates.end(), brr->current) == pausedStates.end()) {
+      std::vector<ExecutionState *> newRemovedStates;
+      for (auto rState : brr->removedStates) {
+        auto itr = std::find(pausedStates.begin(), pausedStates.end(), rState);
+        if (itr != pausedStates.end()) {
+          pausedStates.erase(itr);
+        } else {
+          newRemovedStates.push_back(rState);
+        }
+      }
+      updateBranch(brr->current, brr->addedStates, newRemovedStates);
+    }
+    //updateBranch(brr->current, brr->addedStates, brr->removedStates);
     break;
   }
   case ActionResult::Kind::Backward: {
@@ -368,6 +409,12 @@ ForwardOnlySearcher::ForwardOnlySearcher(const SearcherConfig &cfg) {
 
 ForwardOnlySearcher::~ForwardOnlySearcher() {}
 
+void GuidedOnlySearcher::pauseState(ExecutionState *state) {
+  searcher->update(nullptr, {}, {state});
+  assert(std::find(pausedStates.begin(), pausedStates.end(), state) == pausedStates.end());
+  pausedStates.push_back(state);
+}
+
 ref<BidirectionalAction> GuidedOnlySearcher::selectAction() {
   if (searcher->empty()) {
     return new TerminateAction();
@@ -383,8 +430,9 @@ ref<BidirectionalAction> GuidedOnlySearcher::selectAction() {
         searcher->update(&state, {}, {});
         action = new ForwardAction(&state);
       } else {
-        searcher->update(nullptr, {}, {&state});
-        ex->pauseState(state);
+        /*searcher->update(nullptr, {}, {&state});
+        ex->pauseState(state);*/
+        pauseState(&state);
       }
     } else
       action = new ForwardAction(&state);
@@ -396,7 +444,19 @@ void GuidedOnlySearcher::update(ref<ActionResult> r) {
   switch (r->getKind()) {
   case ActionResult::Kind::Forward: {
     auto fr = cast<ForwardResult>(r);
-    searcher->update(fr->current, fr->addedStates, fr->removedStates);
+    if (std::find(pausedStates.begin(), pausedStates.end(), fr->current) == pausedStates.end()) {
+      std::vector<ExecutionState *> newRemovedStates;
+      for (auto rState : fr->removedStates) {
+        auto itr = std::find(pausedStates.begin(), pausedStates.end(), rState);
+        if (itr != pausedStates.end()) {
+          pausedStates.erase(itr);
+        } else {
+          newRemovedStates.push_back(rState);
+        }
+      }
+      searcher->update(fr->current, fr->addedStates, newRemovedStates);
+    }
+    //searcher->update(fr->current, fr->addedStates, fr->removedStates);
     break;
   }
   case ActionResult::Kind::Terminate: {

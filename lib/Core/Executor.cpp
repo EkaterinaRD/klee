@@ -3494,38 +3494,30 @@ void Executor::updateResult(ref<ActionResult> r) {
     auto fr = cast<ForwardResult>(r);
     states.insert(fr->addedStates.begin(), fr->addedStates.end());
     for (const auto state : fr->removedStates) {
-      removeState(state);
+      std::set<ExecutionState *>::iterator it2 = states.find(state);
+      assert(it2 != states.end());
+      states.erase(it2);
+      std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it3 = 
+        seedMap.find(state);
+      if (it3 != seedMap.end())
+        seedMap.erase(it3);
+      processForest->remove(state->ptreeNode);
+      delete state;
     }
   } else if (isa<BranchResult>(r)) {
     auto br = cast<BranchResult>(r);
     isolatedStates.insert(br->addedStates.begin(), br->addedStates.end());
     for (const auto state : br->removedStates) {
-      removeIsolatedState(state);
+      std::set<ExecutionState *>::iterator it2 = isolatedStates.find(state);
+      assert(it2 != isolatedStates.end());
+      isolatedStates.erase(it2);
+      processForest->remove(state->ptreeNode);
+      delete state;
     }
   }
 
   addedStates.clear();
   removedStates.clear();
-}
-
-void Executor::removeState(ExecutionState *state) {
-  std::set<ExecutionState *>::iterator it2 = states.find(state);
-  assert(it2 != states.end());
-  states.erase(it2);
-  std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it3 =
-    seedMap.find(state);
-  if (it3 != seedMap.end())
-    seedMap.erase(it3);
-  processForest->remove(state->ptreeNode);
-  delete state;
-}
-
-void Executor::removeIsolatedState(ExecutionState *state) {
-  std::set<ExecutionState *>::iterator it2 = isolatedStates.find(state);
-  assert(it2 != isolatedStates.end());
-  isolatedStates.erase(it2);
-  processForest->remove(state->ptreeNode);
-  delete state;
 }
 
 template <typename SqType, typename TypeIt>
@@ -5596,13 +5588,6 @@ void Executor::run(ExecutionState &state) {
   delete emptyState;
   results.clear();
   haltExecution = false;
-}
-
-void Executor::pauseState(ExecutionState &state) {
-  if (state.isIsolated())
-    removeIsolatedState(&state);
-  else
-    removeState(&state);
 }
 
 void Executor::actionBeforeStateTerminating(ExecutionState &state,
