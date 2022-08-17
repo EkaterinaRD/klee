@@ -24,6 +24,8 @@
 #include "Summary.h"
 #include "UserSearcher.h"
 
+#include "SeedMap.h"
+
 #include "klee/ADT/DiscretePDF.h"
 #include "klee/ADT/RNG.h"
 #include "klee/Core/Interpreter.h"
@@ -211,7 +213,7 @@ private:
   /// satisfies one or more seeds will be added to this map. What
   /// happens with other states (that don't satisfy the seeds) depends
   /// on as-yet-to-be-determined flags.
-  std::map<ExecutionState *, std::vector<SeedInfo>> seedMap;
+  SeedMap *newSeedMap;
 
   /// Map of globals to their representative memory object.
   std::map<const llvm::GlobalValue *, MemoryObject *> globalObjects;

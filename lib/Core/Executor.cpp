@@ -524,6 +524,8 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
       ivcEnabled(false), arrayManager(new ArrayCache()), debugLogBuffer(debugBufferString),
       symbolics(new std::vector<Symbolic>()) {
 
+  newSeedMap = new SeedMap();
+  
   const time::Span maxTime{MaxTime};
   if (maxTime) timers.add(
         std::make_unique<Timer>(maxTime, [&]{
@@ -1003,10 +1005,10 @@ void Executor::branch(ExecutionState &state,
   // simple).
 
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
-    seedMap.find(&state);
-  if (it != seedMap.end()) {
+    newSeedMap->find(&state);
+  if (it != newSeedMap->end()) {
     std::vector<SeedInfo> seeds = it->second;
-    seedMap.erase(it);
+    newSeedMap->erase(it);
 
     // Assume each seed only satisfies one condition (necessarily true
     // when conditions are mutually exclusive and their conjunction is
@@ -1031,13 +1033,15 @@ void Executor::branch(ExecutionState &state,
         i = theRNG.getInt32() % N;
 
       // Extra check in case we're replaying seeds with a max-fork
-      if (result[i])
-        seedMap[result[i]].push_back(*siit);
+      if (result[i]) {
+        newSeedMap->pushBack(result[i], siit);
+      }
+        
     }
 
     if (OnlyReplaySeeds) {
       for (unsigned i=0; i<N; ++i) {
-        if (result[i] && !seedMap.count(result[i])) {
+        if (result[i] && !newSeedMap->count(result[i])) {
           terminateState(*result[i]);
           result[i] = NULL;
         }
@@ -1059,8 +1063,8 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
 
   Solver::Validity res;
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
-    seedMap.find(&current);
-  bool isSeeding = it != seedMap.end();
+    newSeedMap->find(&current);
+  bool isSeeding = it != newSeedMap->end();
 
   if (!isSeeding && !isa<ConstantExpr>(condition) &&
       (MaxStaticForkPct!=1. || MaxStaticSolvePct != 1. ||
@@ -1209,11 +1213,11 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
     addedStates.push_back(falseState);
 
 
-    if (it != seedMap.end()) {
+    if (it != newSeedMap->end()) {
       std::vector<SeedInfo> seeds = it->second;
       it->second.clear();
-      std::vector<SeedInfo> &trueSeeds = seedMap[trueState];
-      std::vector<SeedInfo> &falseSeeds = seedMap[falseState];
+      std::vector<SeedInfo> &trueSeeds = newSeedMap->at(trueState);
+      std::vector<SeedInfo> &falseSeeds = newSeedMap->at(falseState);
       for (std::vector<SeedInfo>::iterator siit = seeds.begin(),
              siie = seeds.end(); siit != siie; ++siit) {
         ref<ConstantExpr> res;
@@ -1232,11 +1236,11 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
       bool swapInfo = false;
       if (trueSeeds.empty()) {
         if (&current == trueState) swapInfo = true;
-        seedMap.erase(trueState);
+        newSeedMap->erase(trueState);
       }
       if (falseSeeds.empty()) {
         if (&current == falseState) swapInfo = true;
-        seedMap.erase(falseState);
+        newSeedMap->erase(falseState);
       }
       if (swapInfo) {
         std::swap(trueState->coveredNew, falseState->coveredNew);
@@ -1295,8 +1299,8 @@ void Executor::addConstraint(ExecutionState &state, ref<Expr> condition) {
 
   // Check to see if this constraint violates seeds.
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
-    seedMap.find(&state);
-  if (it != seedMap.end()) {
+    newSeedMap->find(&state);
+  if (it != newSeedMap->end()) {
     bool warn = false;
     for (std::vector<SeedInfo>::iterator siit = it->second.begin(),
            siie = it->second.end(); siit != siie; ++siit) {
@@ -1430,8 +1434,8 @@ void Executor::executeGetValue(ExecutionState &state,
                                KInstruction *target) {
   e = ConstraintManager::simplifyExpr(state.constraints, e);
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
-    seedMap.find(&state);
-  if (it==seedMap.end() || isa<ConstantExpr>(e)) {
+    newSeedMap->find(&state);
+  if (it==newSeedMap->end() || isa<ConstantExpr>(e)) {
     ref<ConstantExpr> value;
     e = optimizer.optimizeExpr(e, true);
     bool success =
@@ -3498,9 +3502,9 @@ void Executor::updateResult(ref<ActionResult> r) {
       assert(it2 != states.end());
       states.erase(it2);
       std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it3 = 
-        seedMap.find(state);
-      if (it3 != seedMap.end())
-        seedMap.erase(it3);
+        newSeedMap->find(state);
+      if (it3 != newSeedMap->end())
+        newSeedMap->erase(it3);
       processForest->remove(state->ptreeNode);
       delete state;
     }
@@ -3661,7 +3665,7 @@ void Executor::doDumpStates() {
 }
 
 void Executor::seed(ExecutionState &initialState) {
-  std::vector<SeedInfo> &v = seedMap[&initialState];
+  std::vector<SeedInfo> &v = newSeedMap->at(&initialState);
 
   for (std::vector<KTest*>::const_iterator it = usingSeeds->begin(),
          ie = usingSeeds->end(); it != ie; ++it)
@@ -3670,16 +3674,16 @@ void Executor::seed(ExecutionState &initialState) {
   int lastNumSeeds = usingSeeds->size()+10;
   time::Point lastTime, startTime = lastTime = time::getWallTime();
   ExecutionState *lastState = 0;
-  while (!seedMap.empty()) {
+  while (!newSeedMap->empty()) {
     if (haltExecution) {
       doDumpStates();
       return;
     }
 
     std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
-      seedMap.upper_bound(lastState);
-    if (it == seedMap.end())
-      it = seedMap.begin();
+      newSeedMap->upperBound(lastState);
+    if (it == newSeedMap->end())
+      it = newSeedMap->begin();
     lastState = it->first;
     ExecutionState &state = *lastState;
     KInstruction *ki = state.pc;
@@ -3694,7 +3698,7 @@ void Executor::seed(ExecutionState &initialState) {
     if ((stats::instructions % 1000) == 0) {
       int numSeeds = 0, numStates = 0;
       for (std::map<ExecutionState *, std::vector<SeedInfo> >::iterator
-             it = seedMap.begin(), ie = seedMap.end();
+             it = newSeedMap->begin(), ie = newSeedMap->end();
            it != ie; ++it) {
         numSeeds += it->second.size();
         numStates++;
@@ -3823,9 +3827,9 @@ void Executor::terminateState(ExecutionState &state) {
   } else {
     // never reached searcher, just delete immediately
     std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it3 =
-      seedMap.find(&state);
-    if (it3 != seedMap.end())
-      seedMap.erase(it3);
+      newSeedMap->find(&state);
+    if (it3 != newSeedMap->end())
+      newSeedMap->erase(it3);
     addedStates.erase(ita);
     processForest->remove(state.ptreeNode);
     delete &state;
@@ -3836,7 +3840,7 @@ void Executor::terminateStateEarly(ExecutionState &state,
                                    const Twine &message) {
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
-       (AlwaysOutputSeeds && seedMap.count(&state))))
+       (AlwaysOutputSeeds && newSeedMap->count(&state))))
     interpreterHandler->processTestCase(state, (message + "\n").str().c_str(),
                                         "early");
   terminateState(state);
@@ -3845,7 +3849,7 @@ void Executor::terminateStateEarly(ExecutionState &state,
 void Executor::terminateStateOnExit(ExecutionState &state) {
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
-       (AlwaysOutputSeeds && seedMap.count(&state))))
+       (AlwaysOutputSeeds && newSeedMap->count(&state))))
     interpreterHandler->processTestCase(state, 0, 0);
   actionBeforeStateTerminating(state, TerminateReason::Model);
   terminateState(state);
@@ -3853,7 +3857,7 @@ void Executor::terminateStateOnExit(ExecutionState &state) {
 
 void Executor::terminateStateOnTerminator(ExecutionState &state) {
   if (!OnlyOutputStatesCoveringNew || state.coveredNew ||
-      (AlwaysOutputSeeds && seedMap.count(&state)))
+      (AlwaysOutputSeeds && newSeedMap->count(&state)))
     interpreterHandler->processTestCase(state, 0, 0);
   actionBeforeStateTerminating(state, TerminateReason::Model);
   terminateState(state);
@@ -4649,8 +4653,8 @@ ObjectPair Executor::executeMakeSymbolic(ExecutionState &state,
     state.addSymbolic(mo, array);
 
     std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
-      seedMap.find(&state);
-    if (it!=seedMap.end()) { // In seed mode we need to add this as a
+      newSeedMap->find(&state);
+    if (it!=newSeedMap->end()) { // In seed mode we need to add this as a
                              // binding.
       for (std::vector<SeedInfo>::iterator siit = it->second.begin(),
              siie = it->second.end(); siit != siie; ++siit) {
@@ -5486,7 +5490,7 @@ void Executor::run(ExecutionState &state) {
   cfg.executor = this;
 
   if (usingSeeds) {
-    std::vector<SeedInfo> &v = seedMap[&state];
+    std::vector<SeedInfo> &v = newSeedMap->at(&state);
 
     for (std::vector<KTest*>::const_iterator it = usingSeeds->begin(),
            ie = usingSeeds->end(); it != ie; ++it)
@@ -5495,16 +5499,16 @@ void Executor::run(ExecutionState &state) {
     int lastNumSeeds = usingSeeds->size()+10;
     time::Point lastTime, startTime = lastTime = time::getWallTime();
     ExecutionState *lastState = 0;
-    while (!seedMap.empty()) {
+    while (!newSeedMap->empty()) {
       if (haltExecution) {
         doDumpStates();
         return;
       }
 
       std::map<ExecutionState*, std::vector<SeedInfo> >::iterator it = 
-        seedMap.upper_bound(lastState);
-      if (it == seedMap.end())
-        it = seedMap.begin();
+        newSeedMap->upperBound(lastState);
+      if (it == newSeedMap->end())
+        it = newSeedMap->begin();
       lastState = it->first;
       ExecutionState &state = *lastState;
       KInstruction *ki = state.pc;
@@ -5520,7 +5524,7 @@ void Executor::run(ExecutionState &state) {
       if ((stats::instructions % 1000) == 0) {
         int numSeeds = 0, numStates = 0;
         for (std::map<ExecutionState*, std::vector<SeedInfo> >::iterator
-               it = seedMap.begin(), ie = seedMap.end();
+               it = newSeedMap->begin(), ie = newSeedMap->end();
              it != ie; ++it) {
           numSeeds += it->second.size();
           numStates++;

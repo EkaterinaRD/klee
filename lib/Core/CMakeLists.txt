@@ -36,6 +36,8 @@ klee_add_component(kleeCore
   Path.cpp
   Summary.cpp
   Database.cpp
+
+  SeedMap.cpp
 )
 
 # TODO: Work out what the correct LLVM components are for
