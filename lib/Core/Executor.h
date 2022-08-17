@@ -25,6 +25,7 @@
 #include "UserSearcher.h"
 
 #include "SeedMap.h"
+#include "ObjectManager.h"
 
 #include "klee/ADT/DiscretePDF.h"
 #include "klee/ADT/RNG.h"
@@ -154,6 +155,8 @@ public:
   typedef std::pair<ExecutionState *, ExecutionState *> StatePair;
 
 private:
+  ObjectManager objectManager;
+
   /// The random number generator.
   RNG theRNG;
 
@@ -748,7 +751,7 @@ public:
   void unpauseState(ExecutionState &state);
 
   ref<InitializeResult> initBranch(ref<InitializeAction> action);
-  ref<ForwardResult> goForward(ref<ForwardAction> action);
+  ref<ActionResult> goForward(ref<BidirectionalAction> action);
   ref<BackwardResult> goBackward(ref<BackwardAction> action);
 
   ref<ActionResult> executeAction(ref<BidirectionalAction> action);
