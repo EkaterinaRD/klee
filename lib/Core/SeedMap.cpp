@@ -4,6 +4,19 @@ using namespace klee;
 
 SeedMap::SeedMap(/* args */) {}
 
+void SeedMap::update(ref<ActionResult> result) {
+  if (isa<ForwardResult>(result)) {
+    ref<ForwardResult> fr = cast<ForwardResult>(result);
+    for (const auto state : fr->removedStates) {
+      std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it = 
+        seedMap.find(state);
+      if (it != seedMap.end()) {
+        seedMap.erase(it);
+      }
+    }
+  }
+}
+
 std::map< ExecutionState*, std::vector<SeedInfo> >::iterator SeedMap::upperBound(ExecutionState *state) {
   return seedMap.upper_bound(state);
 }

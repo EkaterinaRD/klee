@@ -12,13 +12,15 @@
 #define KLEE_PFOREST_H
 
 #include "PTree.h"
+#include "Subscriber.h"
+#include "SearcherUtil.h"
 
 namespace klee {
 class ExecutionState;
 class PTreeNode;
 class PTree;
 
-class PForest {
+class PForest : public Subscriber {
   // Number of registered ID
   int registeredIds = 0;
   std::map<uint32_t, PTree *> trees;
@@ -26,6 +28,7 @@ class PForest {
 public:
   PForest() = default;
   ~PForest();
+  void update(ref<ActionResult> result) override;
   void addRoot(ExecutionState *initialState);
   void attach(PTreeNode *node, ExecutionState *leftState,
               ExecutionState *rightState);

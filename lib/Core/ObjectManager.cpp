@@ -4,6 +4,14 @@ using namespace klee;
 
 ObjectManager::ObjectManager(/* args */) {}
 
+void ObjectManager::subscribe(Subscriber *s) {
+  subscribers.push_back(s);
+}
+
+void ObjectManager::subscribeAfterAll(Subscriber *s) {
+  subscribersAfterAll.push_back(s);
+}
+
 void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
   initialState = state->copy();
   emptyState = state->copy();

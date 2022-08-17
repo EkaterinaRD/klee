@@ -18,9 +18,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include "Subscriber.h"
+
 namespace klee {
 
-class IBidirectionalSearcher {
+class IBidirectionalSearcher : public Subscriber {
 public:
   virtual ref<BidirectionalAction> selectAction() = 0;
   virtual void update(ref<ActionResult>) = 0;

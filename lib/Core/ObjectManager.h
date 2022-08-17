@@ -4,6 +4,7 @@
 #include "ExecutionState.h"
 #include "SearcherUtil.h"
 #include "ProofObligation.h"
+#include "Subscriber.h"
 
 #include <set>
 #include <vector>
@@ -11,6 +12,9 @@
 namespace klee {
 class ObjectManager {
 private:
+  std::vector<Subscriber *> subscribers;
+  std::vector<Subscriber *> subscribersAfterAll;
+
   ref<ActionResult> result;
   ExecutionState *initialState;
   ExecutionState *emptyState;
@@ -22,6 +26,9 @@ private:
   //ref<TargetedConflict> targetedConflict;
 public:
   ObjectManager(/* args */);
+
+  void subscribe(Subscriber *s);
+  void subscribeAfterAll(Subscriber *s);
 
   void setInitialAndEmtySt(ExecutionState *state);
 

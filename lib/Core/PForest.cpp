@@ -21,6 +21,20 @@
 using namespace klee;
 using namespace llvm;
 
+void PForest::update(ref<ActionResult> result) {
+  if (isa<ForwardResult>(result)) {
+    ref<ForwardResult> fr = cast<ForwardResult>(result);
+    for (const auto state : fr->removedStates) {
+      remove(state->ptreeNode);
+    }
+  } else if (isa<BranchResult>(result)) {
+    ref<BranchResult> brr = cast<BranchResult>(result); 
+    for (const auto state : brr->removedStates) {
+      remove(state->ptreeNode);
+    }
+  }
+}
+
 void PForest::addRoot(ExecutionState *initialState) {
   PTree *tree = new PTree(initialState);
   trees[tree->getID()] = tree;

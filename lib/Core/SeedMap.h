@@ -1,17 +1,21 @@
 #ifndef KLEE_SEEDMAP_H
 #define KLEE_SEEDMAP_H
 
+#include "Subscriber.h"
 #include "ExecutionState.h"
 #include "SeedInfo.h"
+#include "SearcherUtil.h"
 
 #include <map>
 
 namespace klee {
-class SeedMap {
+class SeedMap : public Subscriber {
 private:
   std::map<ExecutionState *, std::vector<SeedInfo>> seedMap;
 public:
   SeedMap(/* args */);
+
+  void update(ref<ActionResult> result) override;
 
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator upperBound(ExecutionState *state);
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator find(ExecutionState *state);

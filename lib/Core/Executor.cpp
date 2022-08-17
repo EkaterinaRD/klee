@@ -3495,6 +3495,8 @@ void Executor::updateResult(ref<ActionResult> r) {
   if (searcher) {
     searcher->update(r);
   }
+  newSeedMap->update(r);
+  processForest->update(r);
 
   objectManager.updateResult();
   if (isa<ForwardResult>(r)) {
@@ -3504,11 +3506,11 @@ void Executor::updateResult(ref<ActionResult> r) {
       std::set<ExecutionState *>::iterator it2 = states.find(state);
       assert(it2 != states.end());
       states.erase(it2);
-      std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it3 = 
+      /*std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it3 = 
         newSeedMap->find(state);
       if (it3 != newSeedMap->end())
         newSeedMap->erase(it3);
-      processForest->remove(state->ptreeNode);
+      processForest->remove(state->ptreeNode);*/
       delete state;
     }
   } else if (isa<BranchResult>(r)) {
@@ -3518,7 +3520,7 @@ void Executor::updateResult(ref<ActionResult> r) {
       std::set<ExecutionState *>::iterator it2 = isolatedStates.find(state);
       assert(it2 != isolatedStates.end());
       isolatedStates.erase(it2);
-      processForest->remove(state->ptreeNode);
+      //processForest->remove(state->ptreeNode);
       delete state;
     }
   }
