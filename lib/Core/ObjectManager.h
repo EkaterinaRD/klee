@@ -45,7 +45,7 @@ public:
 
   void addState(ExecutionState *state);
   void addIsolatedState(ExecutionState *state);
-  void removeState(ExecutionState *state);
+  bool removeState(ExecutionState *state);
 
   bool emptyStates();
   bool emptyIsolatedStates();
@@ -55,6 +55,9 @@ public:
   const std::set<ExecutionState *, ExecutionStateIDCompare> &getIsolatedStates();
 
   void updateResult();
+  void closeProofObligation(bool replayStateFromProofObligation);
+  void addRoot(ExecutionState *state);
+  void replayStateFromPob(ProofObligation *pob);
 
   ~ObjectManager();
 };

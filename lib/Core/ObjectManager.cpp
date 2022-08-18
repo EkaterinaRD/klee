@@ -2,6 +2,18 @@
 
 using namespace klee;
 
+/*namespace klee {
+cl::OptionCategory ExecCat("Execution option",
+                           "This opntions control kind of execution");
+
+cl::opt<bool> ReplayStateFromProofObligation(
+    "replay-state-from-pob",
+     cl::init(false),
+     cl::desc("Replay state from proof obligation (default=false)"),
+     cl::cat(ExecCat));
+} // namespace klee
+
+*/
 ObjectManager::ObjectManager(/* args */) {}
 
 void ObjectManager::subscribe(Subscriber *s) {
@@ -67,19 +79,16 @@ void ObjectManager::addIsolatedState(ExecutionState *state) {
   isolatedStates.insert(state);
 }
 
-void ObjectManager::removeState(ExecutionState *state) {
+bool ObjectManager::removeState(ExecutionState *state) {
   std::vector<ExecutionState *>::iterator itr = 
     std::find(removedStates.begin(), removedStates.end(), state);
-  if (itr == removedStates.end()) {
-    std::vector<ExecutionState *>::iterator ita = 
-      std::find(addedStates.begin(), addedStates.end(), state);
-    if (ita == addedStates.end()) {
-      state->pc = state->prevPC;
-      removedStates.push_back(state);
-    } else {
-      addedStates.erase(ita);
-    }
+  if (itr != removedStates.end()) {
+    return false;
   }
+
+  state->pc = state->prevPC;
+  removedStates.push_back(state);
+  return true;
 }
 
 bool ObjectManager::emptyStates() {
@@ -107,6 +116,13 @@ const std::set<ExecutionState *, ExecutionStateIDCompare> &ObjectManager::getIso
 }
 
 void ObjectManager::updateResult() {
+  for (auto s : subscribers) {
+    s->update(result);
+  }
+  for (auto s : subscribersAfterAll) {
+    s->update(result);
+  }
+
   if (isa<ForwardResult>(result)) {
     ref<ForwardResult> fr = cast<ForwardResult>(result);
     states.insert(fr->addedStates.begin(), fr->addedStates.end());
@@ -114,7 +130,7 @@ void ObjectManager::updateResult() {
       std::set<ExecutionState *>::iterator it2 = states.find(state);
       assert(it2 != states.end());
       states.erase(it2);
-      //delete state;
+      delete state;
     }
   } else if (isa<BranchResult>(result)) {
     ref<BranchResult> brr = cast<BranchResult>(result);
@@ -123,12 +139,68 @@ void ObjectManager::updateResult() {
       std::set<ExecutionState *>::iterator it3 = isolatedStates.find(state);
       assert(it3 != isolatedStates.end());
       isolatedStates.erase(it3);
-      //delete state;
+      delete state;
     }
   }
 
   addedStates.clear();
   removedStates.clear();
+}
+
+void ObjectManager::addRoot(ExecutionState *state) {
+  for (auto s : subscribers) {
+    s->addRoot(state);
+  }
+  for (auto s : subscribersAfterAll) {
+    s->addRoot(state);
+  }
+}
+
+void ObjectManager::replayStateFromPob(ProofObligation *pob) {
+  assert(pob->location->instructions[0]->inst == emptyState->initPC->inst);
+
+  ExecutionState *replayState = initialState->copy();
+  for (const auto &constraint : pob->condition) {
+    replayState->addConstraint(constraint, pob->condition.getLocation(constraint));
+  }
+  for (auto &symbolic : pob->sourcedSymbolics) {
+    replayState->symbolics.push_back(symbolic);
+  }
+
+  replayState->targets.insert(Target(pob->root->location));
+  states.insert(replayState);
+  addRoot(replayState);
+  result = new ForwardResult(nullptr, {replayState}, {});
+  updateResult();
+}
+
+void ObjectManager::closeProofObligation(bool replayStateFromProofObligation) {
+
+  if (isa<BackwardResult>(result)) {
+    ref<BackwardResult> br = cast<BackwardResult>(result);
+    for (auto pob : br->newPobs) {
+      if (pob->location->getFirstInstruction() == emptyState->initPC) {
+        if (replayStateFromProofObligation) {
+          replayStateFromPob(pob);
+        }
+        for (auto s : subscribers) {
+          s->closeProofObligation(pob);
+        }
+        for (auto s : subscribersAfterAll) {
+          s->closeProofObligation(pob);
+        }
+      }
+    }
+  }
+
+  /*for (auto s : subscribers) {
+          s->closeProofObligation(pob);
+        }
+        for (auto s : subscribersAfterAll) {
+          s->closeProofObligation(pob);
+        }*/
+
+  
 }
 
 ObjectManager::~ObjectManager() {}

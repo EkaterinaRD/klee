@@ -29,6 +29,7 @@ public:
   PForest() = default;
   ~PForest();
   void update(ref<ActionResult> result) override;
+  void closeProofObligation(ProofObligation *pob) override {}
   void addRoot(ExecutionState *initialState);
   void attach(PTreeNode *node, ExecutionState *leftState,
               ExecutionState *rightState);
