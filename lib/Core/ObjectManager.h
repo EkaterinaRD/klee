@@ -29,6 +29,7 @@ public:
 
   void subscribe(Subscriber *s);
   void subscribeAfterAll(Subscriber *s);
+  void unsubscribe(Subscriber *s);
 
   void setInitialAndEmtySt(ExecutionState *state);
 

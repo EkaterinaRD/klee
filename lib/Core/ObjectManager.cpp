@@ -24,6 +24,18 @@ void ObjectManager::subscribeAfterAll(Subscriber *s) {
   subscribersAfterAll.push_back(s);
 }
 
+void ObjectManager::unsubscribe(Subscriber *s) {
+  auto it = std::find(subscribers.begin(), subscribers.end(), s);
+  if (it != subscribers.end()) {
+    subscribers.erase(it);
+  } else {
+    auto it2  = std::find(subscribersAfterAll.begin(), subscribersAfterAll.end(), s);
+    if (it2 != subscribersAfterAll.end()) {
+      subscribersAfterAll.erase(it2);
+    }
+  }
+}
+
 void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
   initialState = state->copy();
   emptyState = state->copy();
