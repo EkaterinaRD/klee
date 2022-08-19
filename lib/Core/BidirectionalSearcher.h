@@ -27,7 +27,6 @@ public:
   virtual ref<BidirectionalAction> selectAction() = 0;
   virtual void update(ref<ActionResult>) = 0;
   virtual void closeProofObligation(ProofObligation *) = 0;
-  void addRoot(ExecutionState *state) override {}
   virtual ~IBidirectionalSearcher() {}
 };
 

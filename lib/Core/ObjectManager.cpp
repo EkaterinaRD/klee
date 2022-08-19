@@ -159,16 +159,7 @@ void ObjectManager::updateResult() {
   removedStates.clear();
 }
 
-void ObjectManager::addRoot(ExecutionState *state) {
-  for (auto s : subscribers) {
-    s->addRoot(state);
-  }
-  for (auto s : subscribersAfterAll) {
-    s->addRoot(state);
-  }
-}
-
-void ObjectManager::replayStateFromPob(ProofObligation *pob) {
+ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
   assert(pob->location->instructions[0]->inst == emptyState->initPC->inst);
 
   ExecutionState *replayState = initialState->copy();
@@ -181,19 +172,22 @@ void ObjectManager::replayStateFromPob(ProofObligation *pob) {
 
   replayState->targets.insert(Target(pob->root->location));
   states.insert(replayState);
-  addRoot(replayState);
+  //addRoot(replayState);
   result = new ForwardResult(nullptr, {replayState}, {});
   updateResult();
+  return replayState;
 }
 
-void ObjectManager::closeProofObligation(bool replayStateFromProofObligation) {
+std::vector<ExecutionState *> ObjectManager::closeProofObligation(bool replayStateFromProofObligation) {
 
+  std::vector<ExecutionState *> replayStates;
   if (isa<BackwardResult>(result)) {
     ref<BackwardResult> br = cast<BackwardResult>(result);
     for (auto pob : br->newPobs) {
       if (pob->location->getFirstInstruction() == emptyState->initPC) {
         if (replayStateFromProofObligation) {
-          replayStateFromPob(pob);
+          replayStates.push_back(replayStateFromPob(pob));
+          //replayStateFromPob(pob);
         }
         for (auto s : subscribers) {
           s->closeProofObligation(pob);
@@ -204,15 +198,13 @@ void ObjectManager::closeProofObligation(bool replayStateFromProofObligation) {
       }
     }
   }
-
+  return replayStates;
   /*for (auto s : subscribers) {
           s->closeProofObligation(pob);
         }
         for (auto s : subscribersAfterAll) {
           s->closeProofObligation(pob);
         }*/
-
-  
 }
 
 ObjectManager::~ObjectManager() {}

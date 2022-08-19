@@ -17,7 +17,6 @@ public:
 
   void update(ref<ActionResult> result) override;
   void closeProofObligation(ProofObligation *pob) override {}
-  void addRoot(ExecutionState *state) override {}
 
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator upperBound(ExecutionState *state);
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator find(ExecutionState *state);

@@ -5651,7 +5651,11 @@ void Executor::run(ExecutionState &state) {
     /*updateResult(result);*/
 
     bool replayStateFromProofObligation = ReplayStateFromProofObligation;
-    objectManager.closeProofObligation(replayStateFromProofObligation);
+    std::vector<ExecutionState *> replayStates;
+    replayStates = objectManager.closeProofObligation(replayStateFromProofObligation);
+    for (auto replayState : replayStates) {
+      processForest->addRoot(replayState);
+    }
   }
 
   doDumpStates();

@@ -56,9 +56,8 @@ public:
   const std::set<ExecutionState *, ExecutionStateIDCompare> &getIsolatedStates();
 
   void updateResult();
-  void closeProofObligation(bool replayStateFromProofObligation);
-  void addRoot(ExecutionState *state);
-  void replayStateFromPob(ProofObligation *pob);
+  std::vector<ExecutionState *> closeProofObligation(bool replayStateFromProofObligation);
+  ExecutionState *replayStateFromPob(ProofObligation *pob);
 
   ~ObjectManager();
 };
