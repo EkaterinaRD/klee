@@ -43,7 +43,7 @@ public:
   void insertState(ExecutionState *state);
   void setForwardResult(ref<ForwardResult> res);
   //
-
+  
   void addState(ExecutionState *state);
   void addIsolatedState(ExecutionState *state);
   bool removeState(ExecutionState *state);
@@ -58,6 +58,8 @@ public:
   void updateResult();
   std::vector<ExecutionState *> closeProofObligation(bool replayStateFromProofObligation);
   ExecutionState *replayStateFromPob(ProofObligation *pob);
+
+  void setSearcher();
 
   ~ObjectManager();
 };

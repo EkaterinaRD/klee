@@ -5625,6 +5625,9 @@ void Executor::run(ExecutionState &state) {
     }
   }
 
+  objectManager.setAction(new ForwardAction(nullptr));
+  objectManager.updateResult();
+
   if (ExecutionMode == ExecutionKind::Forward) {
     searcher = std::make_unique<ForwardOnlySearcher>(cfg);
   } else if (ExecutionMode == ExecutionKind::Guided) {
@@ -5634,8 +5637,10 @@ void Executor::run(ExecutionState &state) {
   }
   objectManager.subscribe(searcher.get());
 
-  objectManager.setAction(new ForwardAction(nullptr));
-  objectManager.updateResult();
+  objectManager.setSearcher();
+  /*objectManager.setAction(new ForwardAction(nullptr));
+  objectManager.updateResult();*/
+
   /*std::vector<ExecutionState *> newStates(states.begin(), states.end());
   std::vector<ExecutionState *> removed{};
   ref<ForwardResult> res = new ForwardResult(nullptr, newStates, removed);

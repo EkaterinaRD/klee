@@ -207,4 +207,10 @@ std::vector<ExecutionState *> ObjectManager::closeProofObligation(bool replaySta
         }*/
 }
 
+void ObjectManager::setSearcher() {
+  std::vector<ExecutionState *> newStates(states.begin(), states.end());
+  result = new ForwardResult(nullptr, newStates, {});
+  updateResult();
+}
+
 ObjectManager::~ObjectManager() {}
