@@ -82,4 +82,15 @@ const std::set<ExecutionState*, ExecutionStateIDCompare> &StateManager::getState
   return states;
 }
 
+void StateManager::setSearcher() {
+  std::vector<ExecutionState *> newStates(states.begin(), states.end());
+  //updateStates(nullptr, newStates, {});
+  for (auto s : subscribers) {
+    s->update(nullptr, newStates, {});
+  }
+  for (auto s : subscribersAfterAll) {
+    s->update(nullptr, newStates, {});
+  }
+}
+
 StateManager::~StateManager() {}

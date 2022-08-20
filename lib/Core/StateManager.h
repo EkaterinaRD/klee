@@ -41,6 +41,8 @@ public:
   bool removeState(ExecutionState &state);
   void updateStates(ExecutionState *state);
 
+  void setSearcher();
+
   //переименовать
   const std::set<ExecutionState*, ExecutionStateIDCompare> &getStates();
 

@@ -3787,9 +3787,11 @@ void Executor::run(ExecutionState &initialState) {
     seed(initialState);
   }
 
+  stateManager.updateStates(nullptr);
   searcher = constructUserSearcher(*this);
   stateManager.subscribe(searcher);
-  stateManager.updateStates(nullptr);
+  stateManager.setSearcher();
+  //stateManager.updateStates(nullptr);
 
   // main interpreter loop
   while (!stateManager.emptyStates() && !haltExecution) {
