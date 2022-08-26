@@ -1,4 +1,5 @@
 #include "ObjectManager.h"
+#include "Composer.h"
 
 using namespace klee;
 
@@ -43,6 +44,14 @@ void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
   emptyState->isolated = true;
 }
 
+ExecutionState *ObjectManager::getInitialState() {
+  return initialState;
+}
+
+ExecutionState *ObjectManager::getEmptyState() {
+  return emptyState;
+}
+
 void ObjectManager::setAction(ref<ForwardAction> action, ref<TargetedConflict> targerConflict) {
   result = new ForwardResult(action->state, addedStates, removedStates, targerConflict);
 }
@@ -59,7 +68,7 @@ void ObjectManager::setAction(ref<ForwardAction> action) {
   }
 }
 
-void ObjectManager::setAction(ref<BackwardAction> action, std::vector<ProofObligation *> newPobs) {
+void ObjectManager::setAction(ref<BackwardAction> action) {
   result = new BackwardResult(newPobs, action->pob);
 } 
 
@@ -81,6 +90,32 @@ void ObjectManager::setForwardResult(ref<ForwardResult> res) {
   result = new ForwardResult(res->current, res->addedStates, res->removedStates);
 }
 
+void ObjectManager::addNewPob(ProofObligation *newPob) {
+  newPobs.push_back(newPob);
+}
+
+std::vector<ProofObligation *> ObjectManager::getPobs() {
+  return newPobs;
+}
+
+ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
+  KInstruction *loc = action->location;
+  std::set<Target> &targets = action->targets;
+
+  ExecutionState *state = nullptr;
+  if (loc == initialState->initPC) {
+    state = initialState->copy();
+    state->isolated = true;
+  } else {
+    state = emptyState->withKInstruction(loc);
+  }
+  isolatedStates.insert(state);
+  for (auto target : targets) {
+    state->targets.insert(target);
+  }
+  result = new InitializeResult(loc, *state);
+  return state;
+}
 ///
 
 void ObjectManager::addState(ExecutionState *state) {
@@ -91,16 +126,18 @@ void ObjectManager::addIsolatedState(ExecutionState *state) {
   isolatedStates.insert(state);
 }
 
-bool ObjectManager::removeState(ExecutionState *state) {
+void ObjectManager::removeState(ExecutionState *state) {
   std::vector<ExecutionState *>::iterator itr = 
     std::find(removedStates.begin(), removedStates.end(), state);
-  if (itr != removedStates.end()) {
+  assert(itr == removedStates.end());
+  /*if (itr != removedStates.end()) {
+    
     return false;
-  }
+  }*/
 
   state->pc = state->prevPC;
   removedStates.push_back(state);
-  return true;
+  //return true;
 }
 
 bool ObjectManager::emptyStates() {
@@ -157,6 +194,8 @@ void ObjectManager::updateResult() {
 
   addedStates.clear();
   removedStates.clear();
+
+  newPobs.clear();
 }
 
 ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {

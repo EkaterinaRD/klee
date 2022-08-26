@@ -3849,13 +3849,18 @@ void Executor::terminateState(ExecutionState &state) {
                       "replay did not consume all objects in test input.");
   }
 
-  if (objectManager.removeState(&state)) {
+  
+  objectManager.removeState(&state);
+  if (!state.isIsolated())
+    interpreterHandler->incPathsExplored();
+  
+  /*if (objectManager.removeState(&state)) {
     if (!state.isIsolated()){
       interpreterHandler->incPathsExplored();
     }
   } else {
     klee_warning("remove state twice");
-  }
+  }*/
 
   /*ExecutionState *rState = &state;
   objectManager.removeState(rState);
@@ -5545,11 +5550,13 @@ KBlock *Executor::calculateTargetByBlockHistory(ExecutionState &state) {
 
 void Executor::run(ExecutionState &state) {
   
-  initialState = state.copy();
+  /*initialState = state.copy();
   emptyState = state.copy();
   emptyState->stack.clear();
-  emptyState->isolated = true;
+  emptyState->isolated = true;*/
   objectManager.setInitialAndEmtySt(&state);
+  initialState = objectManager.getInitialState();
+  emptyState = objectManager.getEmptyState();
 
   timers.reset();
   //states.insert(&state);
@@ -5581,13 +5588,14 @@ void Executor::run(ExecutionState &state) {
       lastState = it->first;
       ExecutionState &state = *lastState;
       KInstruction *ki = state.pc;
+      objectManager.setAction(new ForwardAction(&state));
       stepInstruction(state);
 
       executeInstruction(state, ki);
       timers.invoke();
       if (::dumpStates) dumpStates();
       if (::dumpPForest) dumpPForest();
-      objectManager.setAction(new ForwardAction(&state));
+      //objectManager.setAction(new ForwardAction(&state));
       objectManager.updateResult();
       //ref<ForwardResult> res = new ForwardResult(&state, addedStates, removedStates);
       //updateResult(res);
@@ -5650,6 +5658,7 @@ void Executor::run(ExecutionState &state) {
 
   while (!haltExecution) {
     auto action = searcher->selectAction();
+    //objectManager.setAction(action)
     executeAction(action);
     /*auto result = executeAction(action);*/
     objectManager.updateResult();
@@ -5678,7 +5687,14 @@ void Executor::actionBeforeStateTerminating(ExecutionState &state,
 }
 
 void Executor::initBranch(ref<InitializeAction> action) {
-  KInstruction *loc = action->location;
+  ExecutionState *state = objectManager.initBranch(action);
+  if(!state->isIsolated()) {
+    prepareSymbolicArgs(*state, state->stack.back());
+  }
+  processForest->addRoot(state);
+  timers.invoke();
+  
+  /*KInstruction *loc = action->location;
   std::set<Target> &targets = action->targets;
 
   ExecutionState *state = nullptr;
@@ -5690,16 +5706,16 @@ void Executor::initBranch(ref<InitializeAction> action) {
     state = emptyState->withKInstruction(loc);
     prepareSymbolicArgs(*state, state->stack.back());
   }
-  //isolatedStates.insert(state);
   objectManager.addIsolatedState(state);
   processForest->addRoot(state);
   for (auto target : targets) {
     state->targets.insert(target);
   }
   timers.invoke();
+
   action->location = loc;
   action->targets = targets;
-  objectManager.setAction(action, *state);
+  objectManager.setAction(action, *state);*/
   //return new InitializeResult(loc, *state);
 }
 
@@ -5756,7 +5772,6 @@ void Executor::goForward(ref<BidirectionalAction> a) {
 void Executor::goBackward(ref<BackwardAction> action) {
   ExecutionState *state = action->state;
   ProofObligation *pob = action->pob;
-
   Conflict::core_ty conflictCore;
   ExprHashMap<ref<Expr>> rebuildMap;
 
@@ -5784,39 +5799,48 @@ void Executor::goBackward(ref<BackwardAction> action) {
       for (auto i : kf->returnKBlocks) {
         ProofObligation *callPob = propagateToReturn(
             newPob, state->initPC->parent->instructions[0], i);
-        newPobs.push_back(callPob);
+        //newPobs.push_back(callPob);
+        objectManager.addNewPob(callPob);
       }
       newPob->detachParent();
       delete newPob;
     } else {
-      newPobs.push_back(newPob);
+      //newPobs.push_back(newPob);
+      objectManager.addNewPob(newPob);
     }
     if (DebugExecutor) {
       llvm::errs() << "Propagated pobs\n";
-      for (auto &pob : newPobs) {
+      for (auto &pob : objectManager.getPobs()) {
         llvm::errs() << "Path: " << pob->path.toString() << "\n";
         llvm::errs() << "Constraints:\n" << pob->condition << "\n";
         llvm::errs() << "\n";
       }
     }
-    for (auto &newPob : newPobs) {
+    for (auto &newPob : objectManager.getPobs()) {
       newPob->parent = pob;
       pob->children.insert(newPob);
     }
-    return new BackwardResult(newPobs, state, pob);
+    /*return new BackwardResult(newPobs, state, pob);
     action->state = state;
     action->pob = pob;
-    objectManager.setAction(action, newPobs);
+    objectManager.setAction(action, newPobs);*/
+    //action->state = state;
+    //action->pob = pob;
+    //objectManager.setAction(action, newPobs);
+    objectManager.setAction(new BackwardAction(nullptr, pob));
     //return new BackwardResult(newPobs, pob);
   } else {
     newPob->detachParent();
     delete newPob;
     if (state->isIsolated() && conflictCore.size())
       summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
-    return new BackwardResult({}, state, pob);
+    /*return new BackwardResult({}, state, pob);
     action->pob = pob;
     //return new BackwardResult({}, pob);
-    objectManager.setAction(action, {});
+    objectManager.setAction(action, {});*/
+    /*action->state = state;
+    action->pob = pob;*/
+    objectManager.setAction(new BackwardAction(nullptr, pob));
     //return new BackwardResult({}, pob);
   }
 }

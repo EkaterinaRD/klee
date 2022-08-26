@@ -23,6 +23,7 @@ private:
   std::set<ExecutionState *, ExecutionStateIDCompare> isolatedStates;
   std::vector<ExecutionState *> addedStates;
   std::vector<ExecutionState *> removedStates;
+  std::vector<ProofObligation *> newPobs;
   //ref<TargetedConflict> targetedConflict;
 public:
   ObjectManager(/* args */);
@@ -32,21 +33,28 @@ public:
   void unsubscribe(Subscriber *s);
 
   void setInitialAndEmtySt(ExecutionState *state);
+  ExecutionState *getInitialState();
+  ExecutionState *getEmptyState();
 
   void setAction(ref<ForwardAction> action);
   void setAction(ref<ForwardAction> action, ref<TargetedConflict> targetedConflict);
-  void setAction(ref<BackwardAction> action, std::vector<ProofObligation *> newPobs);
-  void setAction(ref<InitializeAction> action, ExecutionState &state);\
+  void setAction(ref<BackwardAction> action);
+  void setAction(ref<InitializeAction> action, ExecutionState &state);
   void setAction(ref<TerminateAction> action);
 
   //временно
   void insertState(ExecutionState *state);
   void setForwardResult(ref<ForwardResult> res);
+  
+  void addNewPob(ProofObligation *newPob);
+  std::vector<ProofObligation *> getPobs();
+  //void goBackward(ref<BackwardAction> action, TimerGroup &timers);
+  ExecutionState *initBranch(ref<InitializeAction> action);
   //
   
   void addState(ExecutionState *state);
   void addIsolatedState(ExecutionState *state);
-  bool removeState(ExecutionState *state);
+  void removeState(ExecutionState *state);
 
   bool emptyStates();
   bool emptyIsolatedStates();
