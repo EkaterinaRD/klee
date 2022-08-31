@@ -19,6 +19,10 @@ ObjectManager::ObjectManager(/* args */) {}
 
 void ObjectManager::subscribe(Subscriber *s) {
   subscribers.push_back(s);
+  std::vector<ExecutionState *> newStates(states.begin(), states.end());
+  std::vector<ExecutionState *> rStates;
+  result = new ForwardResult(nullptr, newStates, rStates);
+  s->update(result);
 }
 
 void ObjectManager::subscribeAfterAll(Subscriber *s) {
@@ -44,6 +48,11 @@ void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
   emptyState->isolated = true;
 }
 
+void ObjectManager::deleteInitialAndEmptySt() {
+  delete initialState;
+  delete emptyState;
+}
+
 ExecutionState *ObjectManager::getInitialState() {
   return initialState;
 }
@@ -52,50 +61,49 @@ ExecutionState *ObjectManager::getEmptyState() {
   return emptyState;
 }
 
-void ObjectManager::setAction(ref<ForwardAction> action, ref<TargetedConflict> targerConflict) {
-  result = new ForwardResult(action->state, addedStates, removedStates, targerConflict);
+void ObjectManager::setAction(ref<BidirectionalAction> action) {
+  _action = action;
 }
 
-void ObjectManager::setAction(ref<ForwardAction> action) {
-  switch (action->getKind()) {
-  case BidirectionalAction::Kind::Forward:
-    result = new ForwardResult(action->state, addedStates, removedStates);
+void ObjectManager::setResult() {
+  switch (_action->getKind()) {
+  case BidirectionalAction::Kind::Forward: {
+    ref<ForwardAction> action = cast<ForwardAction>(_action);
+    result = new ForwardResult(action->state, addedStates, removedStates, targetedConflict);
     break;
-  case BidirectionalAction::Kind::Branch:
+  }
+  case BidirectionalAction::Kind::Branch: {
+    ref<BranchAction> action = cast<BranchAction>(_action);
     result = new BranchResult(action->state, addedStates, removedStates);
+    break;
+  }
+  case BidirectionalAction::Kind::Backward: {
+    ref<BackwardAction> action = cast<BackwardAction>(_action);
+    result = new BackwardResult(addedPobs, action->pob);
+    break;
+  }
+  case BidirectionalAction::Kind::Terminate: {
+    result = new TerminateResult();
+    break;
+  }
   default:
+    //result = new TerminateResult();
     break;
   }
 }
-
-void ObjectManager::setAction(ref<BackwardAction> action) {
-  result = new BackwardResult(newPobs, action->pob);
-} 
-
-void ObjectManager::setAction(ref<InitializeAction> action, ExecutionState &state) {
-  result = new InitializeResult(action->location, state);
-}
-
-void ObjectManager::setAction(ref<TerminateAction> action) {
-  result = new TerminateResult();
-}
-
 ///
 
-void ObjectManager::insertState(ExecutionState *state) {
-  states.insert(state);
+void ObjectManager::addPob(ProofObligation *newPob) {
+  addedPobs.push_back(newPob);
 }
 
-void ObjectManager::setForwardResult(ref<ForwardResult> res) {
-  result = new ForwardResult(res->current, res->addedStates, res->removedStates);
-}
-
-void ObjectManager::addNewPob(ProofObligation *newPob) {
-  newPobs.push_back(newPob);
+void ObjectManager::removePob(ProofObligation *pob) {
+  pob->detachParent();
+  delete pob;
 }
 
 std::vector<ProofObligation *> ObjectManager::getPobs() {
-  return newPobs;
+  return addedPobs;
 }
 
 ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
@@ -116,28 +124,34 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
   result = new InitializeResult(loc, *state);
   return state;
 }
+
+void ObjectManager::setTargetedConflict(ref<TargetedConflict> tc) {
+  targetedConflict = tc;
+}
 ///
+
+ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) {
+  ExecutionState *state = new ExecutionState(kmodule->functionMap[f], kmodule->functionMap[f]->blockMap[&*f->begin()]);
+  return state;
+}
 
 void ObjectManager::addState(ExecutionState *state) {
   addedStates.push_back(state);
 }
 
-void ObjectManager::addIsolatedState(ExecutionState *state) {
-  isolatedStates.insert(state);
-}
+ExecutionState *ObjectManager::branchState(ExecutionState *state) {
+  ExecutionState *newState = state->branch();
+  addedStates.push_back(newState);
+  return newState;
+} 
 
 void ObjectManager::removeState(ExecutionState *state) {
   std::vector<ExecutionState *>::iterator itr = 
     std::find(removedStates.begin(), removedStates.end(), state);
   assert(itr == removedStates.end());
-  /*if (itr != removedStates.end()) {
-    
-    return false;
-  }*/
 
   state->pc = state->prevPC;
   removedStates.push_back(state);
-  //return true;
 }
 
 bool ObjectManager::emptyStates() {
@@ -165,6 +179,8 @@ const std::set<ExecutionState *, ExecutionStateIDCompare> &ObjectManager::getIso
 }
 
 void ObjectManager::updateResult() {
+  setResult();
+
   for (auto s : subscribers) {
     s->update(result);
   }
@@ -195,7 +211,10 @@ void ObjectManager::updateResult() {
   addedStates.clear();
   removedStates.clear();
 
-  newPobs.clear();
+  for (auto pob : addedPobs) {
+    pobs.push_back(pob);
+  }
+  addedPobs.clear();
 }
 
 ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
@@ -252,4 +271,8 @@ void ObjectManager::setSearcher() {
   updateResult();
 }
 
-ObjectManager::~ObjectManager() {}
+ObjectManager::~ObjectManager() {
+  pobs.clear();
+  //delete initialState;
+  //delete emptyState;
+}

@@ -163,7 +163,7 @@ private:
   ExecutionResult results;
 
   // The program state just before any instructions are excecuted.
-  ExecutionState *emptyState;
+  //ExecutionState *emptyState;
 
   static const char *TerminateReasonNames[];
 

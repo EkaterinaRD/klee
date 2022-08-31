@@ -994,9 +994,10 @@ void Executor::branch(ExecutionState &state,
     result.push_back(&state);
     for (unsigned i=1; i<N; ++i) {
       ExecutionState *es = result[theRNG.getInt32() % i];
-      ExecutionState *ns = es->branch();
+      ExecutionState *ns = objectManager.branchState(es);
+      //ExecutionState *ns = es->branch();
       //addedStates.push_back(ns);
-      objectManager.addState(ns);
+      //objectManager.addState(ns);
       result.push_back(ns);
       processForest->attach(es->ptreeNode, ns, es);
     }
@@ -1211,9 +1212,10 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
 
     ++stats::forks;
 
-    falseState = trueState->branch();
+    falseState = objectManager.branchState(trueState);
+    //falseState = trueState->branch();
     //addedStates.push_back(falseState);
-    objectManager.addState(falseState);
+    //objectManager.addState(falseState);
 
 
     if (it != newSeedMap->end()) {
@@ -2316,6 +2318,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             failedTransitions.count(failedTransition) > MaxFailedBranchings) {
           targetedConflict =
             makeTargetedConflict(state, conflict, lastCondition, target);
+          objectManager.setTargetedConflict(targetedConflict);
         }
       }
       // NOTE: There is a hidden dependency here, markBranchVisited
@@ -3667,6 +3670,7 @@ void Executor::doDumpStates() {
     for (const auto &state : objectManager.getStates()) {
       terminateStateEarly(*state, "Execution halting.");
     }
+    //objectManager.setResult(new ForwardAction(nullptr));
     objectManager.setAction(new ForwardAction(nullptr));
     objectManager.updateResult();
   }
@@ -3674,6 +3678,7 @@ void Executor::doDumpStates() {
     for (const auto state : objectManager.getIsolatedStates()) {
       terminateStateEarly(*state, "Execution halting.");
     }
+    //objectManager.setResult(new BranchAction(nullptr));
     objectManager.setAction(new BranchAction(nullptr));
     objectManager.updateResult();
   }
@@ -3719,14 +3724,15 @@ void Executor::seed(ExecutionState &initialState) {
     lastState = it->first;
     ExecutionState &state = *lastState;
     KInstruction *ki = state.pc;
+    objectManager.setAction(new ForwardAction(&state));
     stepInstruction(state);
 
     executeInstruction(state, ki);
     timers.invoke();
     if (::dumpStates) dumpStates();
     if (::dumpPForest) dumpPForest();
-    ExecutionState *nState = &state;
-    objectManager.setAction(new ForwardAction(nState));
+    //ExecutionState *nState = &state;
+    //objectManager.setResult(new ForwardAction(nState));
     objectManager.updateResult();
     //updateResult(new ForwardResult(&state, addedStates, removedStates));
 
@@ -3766,6 +3772,7 @@ void Executor::seed(ExecutionState &initialState) {
 void Executor::executeStep(ExecutionState &state) {
   KInstruction *ki = state.pc;
 
+  objectManager.setAction(new ForwardAction(&state));
   stepInstruction(state);
 
   executeInstruction(state, ki);
@@ -3774,8 +3781,8 @@ void Executor::executeStep(ExecutionState &state) {
   if (::dumpStates) dumpStates();
   if (::dumpPForest) dumpPForest();
 
-  ExecutionState *nState = &state;
-  objectManager.setAction(new ForwardAction(nState));
+  //ExecutionState *nState = &state;
+  //objectManager.setResult(new ForwardAction(nState));
   objectManager.updateResult();
   //updateResult(new ForwardResult(&state, addedStates, removedStates));
 
@@ -5405,7 +5412,7 @@ void Executor::executeAction(ref<BidirectionalAction> action) {
   case BidirectionalAction::Kind::Terminate:
   default: {
     haltExecution = true;
-    objectManager.setAction(cast<TerminateAction>(action));
+    //objectManager.setResult(cast<TerminateAction>(action));
     //return new TerminateResult();
     break;
   }
@@ -5524,42 +5531,11 @@ KBlock *Executor::calculateTargetByBlockHistory(ExecutionState &state) {
   return nearestBlock;
 }
 
-
-/*void Executor::replayStateFromPob(ProofObligation *pob) {
-  assert(pob->location->instructions[0]->inst == emptyState->initPC->inst);
-
-  ExecutionState *replayState = initialState->copy();
-  for (const auto &constraint : pob->condition) {
-    replayState->addConstraint(
-        constraint, pob->condition.getLocation(constraint));
-  }
-  for (auto &symbolic : pob->sourcedSymbolics) {
-    replayState->symbolics.push_back(symbolic);
-  }
-
-  replayState->targets.insert(Target(pob->root->location));
-  objectManager.insertState(replayState); ///
-  states.insert(replayState);
-  //processForest->addRoot(replayState);
-  objectManager.addRoot(replayState);
-  objectManager.setForwardResult(new ForwardResult(nullptr, {replayState}, {})); ///
-  std::vector<ExecutionState *> v = {replayState};
-  std::vector<ExecutionState *> toRemove = {};
-  updateResult(new ForwardResult(nullptr, v, toRemove));
-}*/
-
 void Executor::run(ExecutionState &state) {
-  
-  /*initialState = state.copy();
-  emptyState = state.copy();
-  emptyState->stack.clear();
-  emptyState->isolated = true;*/
   objectManager.setInitialAndEmtySt(&state);
   initialState = objectManager.getInitialState();
-  emptyState = objectManager.getEmptyState();
 
   timers.reset();
-  //states.insert(&state);
   objectManager.addState(&state);
 
   SearcherConfig cfg;
@@ -5595,7 +5571,7 @@ void Executor::run(ExecutionState &state) {
       timers.invoke();
       if (::dumpStates) dumpStates();
       if (::dumpPForest) dumpPForest();
-      //objectManager.setAction(new ForwardAction(&state));
+      //objectManager.setResult(new ForwardAction(&state));
       objectManager.updateResult();
       //ref<ForwardResult> res = new ForwardResult(&state, addedStates, removedStates);
       //updateResult(res);
@@ -5645,24 +5621,24 @@ void Executor::run(ExecutionState &state) {
   }
   objectManager.subscribe(searcher.get());
 
-  objectManager.setSearcher();
-  /*objectManager.setAction(new ForwardAction(nullptr));
-  objectManager.updateResult();*/
-
-  /*std::vector<ExecutionState *> newStates(states.begin(), states.end());
-  std::vector<ExecutionState *> removed{};
-  ref<ForwardResult> res = new ForwardResult(nullptr, newStates, removed);
-  searcher->update(res);*/
-
   summary->loadAllFromDB();
 
   while (!haltExecution) {
     auto action = searcher->selectAction();
-    //objectManager.setAction(action)
+    objectManager.setAction(action);
     executeAction(action);
-    /*auto result = executeAction(action);*/
     objectManager.updateResult();
-    /*updateResult(result);*/
+    if (!checkMemoryUsage()) {
+      // update searchers when states were terminated early due to memory
+      // pressure
+      objectManager.setAction(new ForwardAction(nullptr));
+      objectManager.updateResult();
+      
+      // updateResult(ret);
+      // state = nullptr;
+      // objectManager.setResult(new ForwardAction(state));
+      // ret = new ForwardResult(state, addedStates, removedStates);
+    }
 
     bool replayStateFromProofObligation = ReplayStateFromProofObligation;
     std::vector<ExecutionState *> replayStates;
@@ -5675,8 +5651,7 @@ void Executor::run(ExecutionState &state) {
   doDumpStates();
   summary->storeAllToDB();
   searcher = nullptr;
-  delete initialState;
-  delete emptyState;
+  objectManager.deleteInitialAndEmptySt();
   results.clear();
   haltExecution = false;
 }
@@ -5688,7 +5663,9 @@ void Executor::actionBeforeStateTerminating(ExecutionState &state,
 
 void Executor::initBranch(ref<InitializeAction> action) {
   ExecutionState *state = objectManager.initBranch(action);
-  if(!state->isIsolated()) {
+  KInstruction *loc = action->location;
+  //ExecutionState *_initialState = objectManager.getInitialState();
+  if(loc != initialState->initPC) {
     prepareSymbolicArgs(*state, state->stack.back());
   }
   processForest->addRoot(state);
@@ -5715,24 +5692,12 @@ void Executor::initBranch(ref<InitializeAction> action) {
 
   action->location = loc;
   action->targets = targets;
-  objectManager.setAction(action, *state);*/
+  objectManager.setResult(action, *state);*/
   //return new InitializeResult(loc, *state);
 }
 
 void Executor::goForward(ref<BidirectionalAction> a) {
-  bool brAction = false;
-  /*bool fAction = false;
-  switch (a->getKind()) {
-  case BidirectionalAction::Kind::Forward:
-    fAction = true;
-    break;
-  case BidirectionalAction::Kind::Branch:
-    brAction = true;
-    break;
-  }*/
-  if (a->getKind() == BidirectionalAction::Kind::Branch) {
-    brAction = true;
-  }
+  
   ref<ForwardAction> action = cast<ForwardAction>(a);
 
   ExecutionState *state = action->state;
@@ -5748,25 +5713,8 @@ void Executor::goForward(ref<BidirectionalAction> a) {
   if (::dumpStates) dumpStates();
   if (::dumpPForest) dumpPForest();
 
-  objectManager.setAction(new ForwardAction(state), targetedConflict);
-  //ref<ForwardResult> ret = new ForwardResult(state, addedStates, removedStates, targetedConflict);
   targetedConflict = ref<TargetedConflict>();
-
-  if (!checkMemoryUsage()) {
-    // update searchers when states were terminated early due to memory pressure
-    objectManager.updateResult();
-    //updateResult(ret);
-    state = nullptr;
-    objectManager.setAction(new ForwardAction(state));
-    //ret = new ForwardResult(state, addedStates, removedStates);
-  }
-
-  if (brAction) {
-    objectManager.setAction(new BranchAction(state));
-    //return new BranchResult(state, addedStates, removedStates);
-  }
-
-  //return ret;
+  objectManager.setTargetedConflict(targetedConflict);
 }
 
 void Executor::goBackward(ref<BackwardAction> action) {
@@ -5789,7 +5737,7 @@ void Executor::goBackward(ref<BackwardAction> action) {
         newPob->stack.pop_back();
       }
     }
-    std::vector<ProofObligation *> newPobs;
+    //std::vector<ProofObligation *> newPobs;
     // If the state initial location is a "right after call" location,
     // the proof obligation is transferred to every return point of the call.
     if (state->initPC->parent->getKBlockType() == KBlockType::Call &&
@@ -5800,13 +5748,14 @@ void Executor::goBackward(ref<BackwardAction> action) {
         ProofObligation *callPob = propagateToReturn(
             newPob, state->initPC->parent->instructions[0], i);
         //newPobs.push_back(callPob);
-        objectManager.addNewPob(callPob);
+        objectManager.addPob(callPob);
       }
-      newPob->detachParent();
-      delete newPob;
+      objectManager.removePob(newPob);
+      //newPob->detachParent();
+      //delete newPob;
     } else {
       //newPobs.push_back(newPob);
-      objectManager.addNewPob(newPob);
+      objectManager.addPob(newPob);
     }
     if (DebugExecutor) {
       llvm::errs() << "Propagated pobs\n";
@@ -5830,21 +5779,19 @@ void Executor::goBackward(ref<BackwardAction> action) {
     objectManager.setAction(new BackwardAction(nullptr, pob));
     //return new BackwardResult(newPobs, pob);
   } else {
-    newPob->detachParent();
-    delete newPob;
+    objectManager.removePob(newPob);
+    //newPob->detachParent();
+    //delete newPob;
     if (state->isIsolated() && conflictCore.size())
       summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
     /*return new BackwardResult({}, state, pob);
     action->pob = pob;
-    //return new BackwardResult({}, pob);
     objectManager.setAction(action, {});*/
     /*action->state = state;
     action->pob = pob;*/
     objectManager.setAction(new BackwardAction(nullptr, pob));
     //return new BackwardResult({}, pob);
   }
-}
-int Executor::getBase(ref<Expr> expr,
                       std::pair<Symbolic, ref<Expr>> &resolved) {
   switch (expr->getKind()) {
   case Expr::Read: {
