@@ -3,18 +3,6 @@
 
 using namespace klee;
 
-/*namespace klee {
-cl::OptionCategory ExecCat("Execution option",
-                           "This opntions control kind of execution");
-
-cl::opt<bool> ReplayStateFromProofObligation(
-    "replay-state-from-pob",
-     cl::init(false),
-     cl::desc("Replay state from proof obligation (default=false)"),
-     cl::cat(ExecCat));
-} // namespace klee
-
-*/
 ObjectManager::ObjectManager(/* args */) {}
 
 void ObjectManager::subscribe(Subscriber *s) {
@@ -98,8 +86,10 @@ void ObjectManager::addPob(ProofObligation *newPob) {
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {
-  pob->detachParent();
-  delete pob;
+  /*pob->detachParent();
+  delete pob;*/
+
+  removedPobs.push_back(pob);
 }
 
 std::vector<ProofObligation *> ObjectManager::getPobs() {
@@ -181,6 +171,7 @@ const std::set<ExecutionState *, ExecutionStateIDCompare> &ObjectManager::getIso
 void ObjectManager::updateResult() {
   setResult();
 
+  //update subscribers
   for (auto s : subscribers) {
     s->update(result);
   }
@@ -188,6 +179,7 @@ void ObjectManager::updateResult() {
     s->update(result);
   }
 
+  //update states
   if (isa<ForwardResult>(result)) {
     ref<ForwardResult> fr = cast<ForwardResult>(result);
     states.insert(fr->addedStates.begin(), fr->addedStates.end());
@@ -211,10 +203,19 @@ void ObjectManager::updateResult() {
   addedStates.clear();
   removedStates.clear();
 
+
+  //update pobs
   for (auto pob : addedPobs) {
     pobs.push_back(pob);
   }
+
+  for (auto pob : removedPobs) {
+    pob->detachParent();
+    delete pob;
+  }
+
   addedPobs.clear();
+  removedPobs.clear();
 }
 
 ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
@@ -257,22 +258,8 @@ std::vector<ExecutionState *> ObjectManager::closeProofObligation(bool replaySta
     }
   }
   return replayStates;
-  /*for (auto s : subscribers) {
-          s->closeProofObligation(pob);
-        }
-        for (auto s : subscribersAfterAll) {
-          s->closeProofObligation(pob);
-        }*/
-}
-
-void ObjectManager::setSearcher() {
-  std::vector<ExecutionState *> newStates(states.begin(), states.end());
-  result = new ForwardResult(nullptr, newStates, {});
-  updateResult();
 }
 
 ObjectManager::~ObjectManager() {
   pobs.clear();
-  //delete initialState;
-  //delete emptyState;
 }

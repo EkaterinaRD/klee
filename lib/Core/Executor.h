@@ -216,7 +216,7 @@ private:
   /// satisfies one or more seeds will be added to this map. What
   /// happens with other states (that don't satisfy the seeds) depends
   /// on as-yet-to-be-determined flags.
-  SeedMap *newSeedMap;
+  std::unique_ptr<SeedMap> seedMap;
 
   /// Map of globals to their representative memory object.
   std::map<const llvm::GlobalValue *, MemoryObject *> globalObjects;

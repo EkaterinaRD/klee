@@ -27,6 +27,7 @@ private:
   std::vector<ExecutionState *> removedStates;
   std::vector<ProofObligation *> pobs;
   std::vector<ProofObligation *> addedPobs;
+  std::vector<ProofObligation *> removedPobs;
   ref<TargetedConflict> targetedConflict;
 public:
   ObjectManager(/* args */);
