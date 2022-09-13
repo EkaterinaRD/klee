@@ -149,11 +149,11 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
     case StepKind::Branch: {
       auto &state = branch->selectState();
       KInstruction *prevKI = state.prevPC;
-      if (ex->initialState->getInitPCBlock() != state.getInitPCBlock() &&
+      /*ExecutionState *initSt = ex->objectManager.getInitialState();
+      llvm::BasicBlock *initPCBlock = initSt->getInitPCBlock;*/
+      if (initialState->getInitPCBlock()/*ex->initialState->getInitPCBlock()*/ != state.getInitPCBlock() &&
           prevKI->inst->isTerminator() &&
           state.multilevel.count(state.getPCBlock()) > 0) {
-        /*branch->update(nullptr, {}, {&state});
-        ex->pauseState(state);*/
         pauseState(&state, StepKind::Branch);
       } else {
         action = new BranchAction(&state);
@@ -317,11 +317,16 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
 BidirectionalSearcher::BidirectionalSearcher(const SearcherConfig &cfg)
     : ticker({80, 10, 5, 5}) {
   ex = cfg.executor;
+  initialState = cfg.initialState;
   forward = new GuidedSearcher(constructUserSearcher(*cfg.executor), true);
   branch = new GuidedSearcher(
       std::unique_ptr<ForwardSearcher>(new BFSSearcher()), false);
   backward = new RecencyRankedSearcher(MaxCycles);
-  initializer = new ConflictCoreInitializer(ex->initialState->pc);
+  /*ExecutionState *initSt = ex->objectManager.getInitialState();
+  KInstIterator _pc = initSt->pc;
+  initializer = new ConflictCoreInitializer(_pc);*/
+  initializer = new ConflictCoreInitializer(initialState->pc);
+  //initializer = new ConflictCoreInitializer(ex->initialState->pc);
 }
 
 BidirectionalSearcher::~BidirectionalSearcher() {

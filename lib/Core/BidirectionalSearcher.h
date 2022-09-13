@@ -42,6 +42,7 @@ private:
   enum class StepKind { Initialize, Forward, Branch, Backward, Terminate };
 
   Executor *ex; // hack
+  ExecutionState *initialState;
   std::vector<ExecutionState *> pausedStates;
   void pauseState(ExecutionState *state, BidirectionalSearcher::StepKind stepKind);
 

@@ -208,7 +208,7 @@ void ObjectManager::updateResult() {
   for (auto pob : addedPobs) {
     pobs.push_back(pob);
   }
-
+  //pobs.erase(pob)
   for (auto pob : removedPobs) {
     pob->detachParent();
     delete pob;

@@ -5534,13 +5534,14 @@ KBlock *Executor::calculateTargetByBlockHistory(ExecutionState &state) {
 
 void Executor::run(ExecutionState &state) {
   objectManager.setInitialAndEmtySt(&state);
-  initialState = objectManager.getInitialState();
+  //initialState = objectManager.getInitialState();
 
   timers.reset();
   objectManager.addState(&state);
 
   SearcherConfig cfg;
   cfg.executor = this;
+  cfg.initialState = objectManager.getInitialState();
 
   if (usingSeeds) {
     std::vector<SeedInfo> &v = seedMap->at(&state);
@@ -5666,6 +5667,7 @@ void Executor::initBranch(ref<InitializeAction> action) {
   ExecutionState *state = objectManager.initBranch(action);
   KInstruction *loc = action->location;
   //ExecutionState *_initialState = objectManager.getInitialState();
+  ExecutionState *initialState = objectManager.getInitialState();
   if(loc != initialState->initPC) {
     prepareSymbolicArgs(*state, state->stack.back());
   }
