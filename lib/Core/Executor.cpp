@@ -5393,14 +5393,10 @@ void Executor::addHistoryResult(ExecutionState &state) {
 void Executor::executeAction(ref<BidirectionalAction> action) {
   switch (action->getKind()) {
   case BidirectionalAction::Kind::Forward: {
-    //ref<ForwardAction> a = cast<ForwardAction>(action);
     goForward(cast<ForwardAction>(action));
     break;
   }
   case BidirectionalAction::Kind::Branch: {
-    //ref<ForwardAction> a = cast<ForwardAction>(action);
-    /*ref<ForwardResult> result = goForward(cast<ForwardAction>(action));
-    return new BranchResult(result->current, result->addedStates, result->removedStates);*/
     goForward(cast<BranchAction>(action));
     break;
   }
@@ -5534,7 +5530,6 @@ KBlock *Executor::calculateTargetByBlockHistory(ExecutionState &state) {
 
 void Executor::run(ExecutionState &state) {
   objectManager.setInitialAndEmtySt(&state);
-  //initialState = objectManager.getInitialState();
 
   timers.reset();
   objectManager.addState(&state);
@@ -5635,11 +5630,6 @@ void Executor::run(ExecutionState &state) {
       // pressure
       objectManager.setAction(new ForwardAction(nullptr));
       objectManager.updateResult();
-      
-      // updateResult(ret);
-      // state = nullptr;
-      // objectManager.setResult(new ForwardAction(state));
-      // ret = new ForwardResult(state, addedStates, removedStates);
     }
 
     bool replayStateFromProofObligation = ReplayStateFromProofObligation;
@@ -5666,37 +5656,12 @@ void Executor::actionBeforeStateTerminating(ExecutionState &state,
 void Executor::initBranch(ref<InitializeAction> action) {
   ExecutionState *state = objectManager.initBranch(action);
   KInstruction *loc = action->location;
-  //ExecutionState *_initialState = objectManager.getInitialState();
   ExecutionState *initialState = objectManager.getInitialState();
   if(loc != initialState->initPC) {
     prepareSymbolicArgs(*state, state->stack.back());
   }
   processForest->addRoot(state);
   timers.invoke();
-  
-  /*KInstruction *loc = action->location;
-  std::set<Target> &targets = action->targets;
-
-  ExecutionState *state = nullptr;
-  if (loc == initialState->initPC) {
-    state = initialState->copy();
-    state->stackBalance = 0;
-    state->isolated = true;
-  } else {
-    state = emptyState->withKInstruction(loc);
-    prepareSymbolicArgs(*state, state->stack.back());
-  }
-  objectManager.addIsolatedState(state);
-  processForest->addRoot(state);
-  for (auto target : targets) {
-    state->targets.insert(target);
-  }
-  timers.invoke();
-
-  action->location = loc;
-  action->targets = targets;
-  objectManager.setResult(action, *state);*/
-  //return new InitializeResult(loc, *state);
 }
 
 void Executor::goForward(ref<BidirectionalAction> a) {
@@ -5750,14 +5715,10 @@ void Executor::goBackward(ref<BackwardAction> action) {
       for (auto i : kf->returnKBlocks) {
         ProofObligation *callPob = propagateToReturn(
             newPob, state->initPC->parent->instructions[0], i);
-        //newPobs.push_back(callPob);
         objectManager.addPob(callPob);
       }
       objectManager.removePob(newPob);
-      //newPob->detachParent();
-      //delete newPob;
     } else {
-      //newPobs.push_back(newPob);
       objectManager.addPob(newPob);
     }
     if (DebugExecutor) {
@@ -5772,29 +5733,13 @@ void Executor::goBackward(ref<BackwardAction> action) {
       newPob->parent = pob;
       pob->children.insert(newPob);
     }
-    /*return new BackwardResult(newPobs, state, pob);
-    action->state = state;
-    action->pob = pob;
-    objectManager.setAction(action, newPobs);*/
-    //action->state = state;
-    //action->pob = pob;
-    //objectManager.setAction(action, newPobs);
-    objectManager.setAction(new BackwardAction(nullptr, pob));
-    //return new BackwardResult(newPobs, pob);
   } else {
     objectManager.removePob(newPob);
-    //newPob->detachParent();
-    //delete newPob;
     if (state->isIsolated() && conflictCore.size())
       summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
-    /*return new BackwardResult({}, state, pob);
-    action->pob = pob;
-    objectManager.setAction(action, {});*/
-    /*action->state = state;
-    action->pob = pob;*/
-    objectManager.setAction(new BackwardAction(nullptr, pob));
-    //return new BackwardResult({}, pob);
   }
+}
+  int Executor::getBase(ref<Expr> expr,
                       std::pair<Symbolic, ref<Expr>> &resolved) {
   switch (expr->getKind()) {
   case Expr::Read: {

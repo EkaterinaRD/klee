@@ -67,7 +67,7 @@ void ObjectManager::setResult() {
   }
   case BidirectionalAction::Kind::Backward: {
     ref<BackwardAction> action = cast<BackwardAction>(_action);
-    result = new BackwardResult(addedPobs, action->pob);
+    result = new BackwardResult(addedPobs, action->state, action->pob);
     break;
   }
   case BidirectionalAction::Kind::Terminate: {
@@ -83,13 +83,23 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
+  for (auto state : states) {
+    if (newPob->location == state->pc->parent) {
+      //Propagation p = new Propagation(state, newPob);
+      Propagation prop(state, newPob);
+      addedPropagations.push_back(prop);
+    }
+  }
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {
-  /*pob->detachParent();
-  delete pob;*/
-
   removedPobs.push_back(pob);
+  for (auto p : propagations) {
+    if (p.pob == pob) {
+      removedProgations.push_back(p);
+    }
+  }
+  
 }
 
 std::vector<ProofObligation *> ObjectManager::getPobs() {
@@ -127,11 +137,24 @@ ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) 
 
 void ObjectManager::addState(ExecutionState *state) {
   addedStates.push_back(state);
+
+  /*if (state->isIsolated()) {
+    state = state->copy();
+    mapTargetToStates[ta]
+  }*/
+  
+  for (auto pob : pobs) {
+    if (state->pc->parent == pob->location) {
+      Propagation prop = new Propagation(state, pob);
+      addedPropagations.push_back(prop);
+    }
+  }
 }
 
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
   addedStates.push_back(newState);
+  //add prop?
   return newState;
 } 
 
@@ -142,6 +165,12 @@ void ObjectManager::removeState(ExecutionState *state) {
 
   state->pc = state->prevPC;
   removedStates.push_back(state);
+  
+  for (auto prop : propagations) {
+    if (prop.state == state) {
+      removedPropagations.push_back(prop);
+    }
+  }
 }
 
 bool ObjectManager::emptyStates() {
@@ -178,6 +207,19 @@ void ObjectManager::updateResult() {
   for (auto s : subscribersAfterAll) {
     s->update(result);
   }
+
+  //update propagations
+  for (auto prop : addedPropagations){
+    propagations.push_back(prop);
+  }
+  for (auto prop : removedProgations) {
+    std::vector<Propagation>::iterator it =
+      std::find(propagations.begin(), propagations.end(), prop);
+    assert(it != propagations.end());
+    propagations.erase(it);
+  }
+  addedPropagations.clear();
+  removedPropagations.clear();
 
   //update states
   if (isa<ForwardResult>(result)) {
@@ -231,7 +273,6 @@ ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
 
   replayState->targets.insert(Target(pob->root->location));
   states.insert(replayState);
-  //addRoot(replayState);
   result = new ForwardResult(nullptr, {replayState}, {});
   updateResult();
   return replayState;
@@ -246,7 +287,6 @@ std::vector<ExecutionState *> ObjectManager::closeProofObligation(bool replaySta
       if (pob->location->getFirstInstruction() == emptyState->initPC) {
         if (replayStateFromProofObligation) {
           replayStates.push_back(replayStateFromPob(pob));
-          //replayStateFromPob(pob);
         }
         for (auto s : subscribers) {
           s->closeProofObligation(pob);
@@ -260,6 +300,29 @@ std::vector<ExecutionState *> ObjectManager::closeProofObligation(bool replaySta
   return replayStates;
 }
 
+
+bool ObjectManager::checkStack(ExecutionState *state, ProofObligation *pob) {
+  if (state->stack.size() == 0) {
+    return true;
+  }
+
+  size_t range = std::min(state->stack.size() - 1, pob->stack.size());
+  auto stateIt = state->stack.rbegin();
+  auto pobIt = pob->stack.rbegin();
+
+  for (size_t i = 0; i < range; ++i) {
+    KInstruction *stateInstr = stateIt->caller;
+    KInstruction *pobInstr = *pobIt;
+    if (stateInstr != pobInstr) {
+      return false;
+    }
+    stateIt++;
+    pobIt++;
+  }
+  return true;
+}
+
 ObjectManager::~ObjectManager() {
   pobs.clear();
+  propagations.clear();
 }

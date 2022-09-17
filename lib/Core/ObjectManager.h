@@ -11,6 +11,16 @@
 #include <vector>
 
 namespace klee {
+
+struct Propagation {
+  ExecutionState *state;
+  ProofObligation *pob;
+
+  Propagation(ExecutionState *_state, ProofObligation *_pob) 
+    : state(_state), pob(_pob) {}
+};
+
+
 class ObjectManager {
 private:
   std::vector<Subscriber *> subscribers;
@@ -25,10 +35,16 @@ private:
   std::set<ExecutionState *, ExecutionStateIDCompare> isolatedStates;
   std::vector<ExecutionState *> addedStates;
   std::vector<ExecutionState *> removedStates;
+  ref<TargetedConflict> targetedConflict;
+
   std::vector<ProofObligation *> pobs;
   std::vector<ProofObligation *> addedPobs;
   std::vector<ProofObligation *> removedPobs;
-  ref<TargetedConflict> targetedConflict;
+
+  std::vector<Propagation> propagations;
+  std::vector<Propagation> addedPropagations;
+  std::vector<Propagation> removedProgations;
+  std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;
 public:
   ObjectManager(/* args */);
 
@@ -69,7 +85,8 @@ public:
   std::vector<ExecutionState *> closeProofObligation(bool replayStateFromProofObligation);
   ExecutionState *replayStateFromPob(ProofObligation *pob);
 
-  void setSearcher();
+  //void setSearcher();
+  bool checkStack(ExecutionState * state, ProofObligation *pob);
 
   ~ObjectManager();
 };

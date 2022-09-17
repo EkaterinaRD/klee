@@ -125,8 +125,9 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
       }
 
       if (PruneStates && state.failedBackwardStepsCounter > 0) {
-        forward->update(nullptr, {}, {&state});
-        ex->pauseState(state);
+        /*forward->update(nullptr, {}, {&state});
+        ex->pauseState(state);*/
+        pauseState(&state, StepKind::Forward);
         break;
       }
 
@@ -149,9 +150,7 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
     case StepKind::Branch: {
       auto &state = branch->selectState();
       KInstruction *prevKI = state.prevPC;
-      /*ExecutionState *initSt = ex->objectManager.getInitialState();
-      llvm::BasicBlock *initPCBlock = initSt->getInitPCBlock;*/
-      if (initialState->getInitPCBlock()/*ex->initialState->getInitPCBlock()*/ != state.getInitPCBlock() &&
+      if (initialState->getInitPCBlock() != state.getInitPCBlock() &&
           prevKI->inst->isTerminator() &&
           state.multilevel.count(state.getPCBlock()) > 0) {
         pauseState(&state, StepKind::Branch);
@@ -200,8 +199,10 @@ void BidirectionalSearcher::updateForward(
         !isa<KReturnBlock>(state->pc->parent) &&
         !isa<KReturnBlock>(state->prevPC->parent)) {
       Target target = Target(state->pc->parent);
+      //updateProp(addedProp, removedProp)
       backward->addState(target, state);
     }
+    //else delet from prop
   }
 
   if (targetedConflict) {
@@ -228,6 +229,7 @@ void BidirectionalSearcher::updateBranch(
   std::map<Target, std::unordered_set<ExecutionState *>> reached;
 
   branch->update(current, addedStates, removedStates, reached);
+  //objectManager.mapTargetToState = reached
 
   for (auto &targetStates : reached) {
     for (auto state : targetStates.second) {
@@ -322,11 +324,7 @@ BidirectionalSearcher::BidirectionalSearcher(const SearcherConfig &cfg)
   branch = new GuidedSearcher(
       std::unique_ptr<ForwardSearcher>(new BFSSearcher()), false);
   backward = new RecencyRankedSearcher(MaxCycles);
-  /*ExecutionState *initSt = ex->objectManager.getInitialState();
-  KInstIterator _pc = initSt->pc;
-  initializer = new ConflictCoreInitializer(_pc);*/
   initializer = new ConflictCoreInitializer(initialState->pc);
-  //initializer = new ConflictCoreInitializer(ex->initialState->pc);
 }
 
 BidirectionalSearcher::~BidirectionalSearcher() {

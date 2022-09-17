@@ -37,13 +37,17 @@ bool RecencyRankedSearcher::empty() { return propagatePobToStates.empty(); }
 void RecencyRankedSearcher::update(ProofObligation *pob) {
   pobs.push_back(pob);
   Target t(pob->location);
+  //видимо приносим из менеджера
   std::unordered_set<ExecutionState *> &states = emanager.at(t);
   for (auto state : states) {
+    //оставим здесь                                        в ObjMng
     if (pob->propagationCount[state] <= maxPropagations && checkStack(state, pob)) {
       propagatePobToStates[pob].insert(state);
     }
   }
 }
+
+//update(diff prop)
 
 std::pair<ProofObligation *, ExecutionState *>
 RecencyRankedSearcher::selectAction() {
@@ -67,21 +71,31 @@ RecencyRankedSearcher::selectAction() {
 }
 
 void RecencyRankedSearcher::addState(Target target, ExecutionState *state) {
+  //в менеджер и когда приходит из brunch
   if (state->isIsolated()) {
     state = state->copy();
     emanager.insert(target, *state);
   }
+
+  //из менеджера приходит diff prop
+  /*for (auto pob : pobs) {
+    for (auto prop : addedPropagations) {
+      if (pob == prop.pob) {
+        propagatePobToStates[prop.pob].insert(prop.state);
+      }
+      if (!prop.state->isIsolated()) {
+        ++prop.state->backwardStepsLeftCounter;
+      }
+    }
+  }*/
 
   for (auto pob : pobs) {
     Target pobsTarget(pob->location);
     if (target == pobsTarget && checkStack(state, pob)) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
              "Paths are not compatible.");
-      if (state->isIsolated()) {
-        propagatePobToStates[pob].insert(state);
-      } else {
-        propagatePobToStates[pob].insert(state);
-      }
+      propagatePobToStates[pob].insert(state);
+
 
       if (!state->isIsolated())
         ++state->backwardStepsLeftCounter;
