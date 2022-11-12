@@ -23,6 +23,7 @@ public:
   virtual bool empty() = 0;
 };
 
+
 class RecencyRankedSearcher : public BackwardSearcher {
 private:
   std::vector<ProofObligation *> pobs;
@@ -39,6 +40,8 @@ public:
   std::pair<ProofObligation *, ExecutionState *> selectAction() override;
   void addState(Target target, ExecutionState *state) override;
   void update(ProofObligation *pob) override;
+  void updatePropagations(const std::vector<Propagation> &addedPropagations,
+                          const std::vector<Propagation> &removedPropagations);
   void removePob(ProofObligation *pob) override;
   bool empty() override;
 };

@@ -32,6 +32,16 @@ public:
   static bool classof(const BidirectionalAction *) { return true; }
 };
 
+struct Propagation {
+  ExecutionState *state;
+  ProofObligation *pob;
+
+  Propagation(ExecutionState *_state, ProofObligation *_pob) 
+    : state(_state), pob(_pob) {}
+
+  bool operator==(const Propagation &rhs) const { return state == rhs.state && pob == rhs.pob; }
+};
+
 struct TerminateAction : public BidirectionalAction {
   friend class ref<TerminateAction>;
 
@@ -160,12 +170,19 @@ struct ForwardResult : ActionResult {
   ExecutionState *current;
   const std::vector<ExecutionState *> &addedStates;
   const std::vector<ExecutionState *> &removedStates;
+  //prop"ы
+  const std::vector<Propagation> &addedPropagations;
+  const std::vector<Propagation> &removedPropagations;
   ref<TargetedConflict> targetedConflict;
 
   ForwardResult(ExecutionState *_s, const std::vector<ExecutionState *> &_a,
                 const std::vector<ExecutionState *> &_r,
-                ref<TargetedConflict> _c = ref<TargetedConflict>())
-    : current(_s), addedStates(_a), removedStates(_r), targetedConflict(_c) {};
+                const std::vector<Propagation> &_ap,
+                const std::vector<Propagation> &_rp,
+                ref<TargetedConflict> _c = ref<TargetedConflict>()) 
+    : current(_s), addedStates(_a), removedStates(_r), 
+      addedPropagations(_ap), removedPropagations(_rp),
+      targetedConflict(_c) {};
 
   Kind getKind() const { return Kind::Forward; }
   static bool classof(const ActionResult *A) {
@@ -180,10 +197,17 @@ struct BranchResult : ActionResult {
   ExecutionState *current;
   const std::vector<ExecutionState *> &addedStates;
   const std::vector<ExecutionState *> &removedStates;
+  
+  //propы
+  const std::vector<Propagation> &addedPropagations;
+  const std::vector<Propagation> &removedPropagations;
 
   BranchResult(ExecutionState *_s, const std::vector<ExecutionState *> &a,
-               const std::vector<ExecutionState *> &r)
-    : current(_s), addedStates(a), removedStates(r) {};
+               const std::vector<ExecutionState *> &r,
+               const std::vector<Propagation> &ap,
+               const std::vector<Propagation> &rp)
+    : current(_s), addedStates(a), removedStates(r),
+      addedPropagations(ap), removedPropagations(rp) {};
 
   Kind getKind() const { return Kind::Branch; }
   static bool classof(const ActionResult *A) {
@@ -199,8 +223,13 @@ struct BackwardResult : ActionResult {
   ExecutionState *state;
   ProofObligation *oldPob;
 
-  BackwardResult(std::vector<ProofObligation*> _newPobs, ExecutionState *_state, ProofObligation *_oldPob)
-    : newPobs(_newPobs), state(_state), oldPob(_oldPob) {}
+  const std::vector<Propagation> &addedPropagations;
+  const std::vector<Propagation> &removedPropagations;
+
+  BackwardResult(std::vector<ProofObligation*> _newPobs, ExecutionState *_state, ProofObligation *_oldPob,
+                 const std::vector<Propagation> _ap, std::vector<Propagation> _rp)
+    : newPobs(_newPobs), state(_state), oldPob(_oldPob),
+      addedPropagations(_ap), removedPropagations(_rp) {}
 
   Kind getKind() const { return Kind::Backward; }
   static bool classof(const ActionResult *A) {

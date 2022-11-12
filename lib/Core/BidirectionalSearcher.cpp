@@ -125,8 +125,6 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
       }
 
       if (PruneStates && state.failedBackwardStepsCounter > 0) {
-        /*forward->update(nullptr, {}, {&state});
-        ex->pauseState(state);*/
         pauseState(&state, StepKind::Forward);
         break;
       }
@@ -138,8 +136,6 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
           forward->update(&state, {}, {});
           action = new ForwardAction(&state);
         } else {
-          /*forward->update(nullptr, {}, {&state});
-          ex->pauseState(state);*/
           pauseState(&state, StepKind::Forward);
         }
       } else
@@ -205,7 +201,9 @@ void BidirectionalSearcher::updateForward(
     //else delet from prop
   }
 
+  //llvm::errs() << "Hello\n";
   if (targetedConflict) {
+    //llvm::errs() << "Hello\n";
     if (!rootBlocks.count(targetedConflict->target->basicBlock) &&
         !reachableBlocks.count(targetedConflict->target->basicBlock)) {
       rootBlocks.insert(targetedConflict->target->basicBlock);
@@ -213,6 +211,7 @@ void BidirectionalSearcher::updateForward(
                                    targetedConflict->target);
       ProofObligation *pob = new ProofObligation(targetedConflict->target);
 
+      //llvm::errs() << "Hello\n";
       if (DebugBidirectionalSearcher) {
         llvm::errs() << "Add new proof obligation.\n";
         llvm::errs() << "At: " << pob->location->getIRLocation() << "\n";
@@ -229,7 +228,6 @@ void BidirectionalSearcher::updateBranch(
   std::map<Target, std::unordered_set<ExecutionState *>> reached;
 
   branch->update(current, addedStates, removedStates, reached);
-  //objectManager.mapTargetToState = reached
 
   for (auto &targetStates : reached) {
     for (auto state : targetStates.second) {
@@ -259,6 +257,15 @@ void BidirectionalSearcher::updateInitialize(KInstruction *location,
   branch->update(nullptr, {&state}, {});
 }
 
+//updateProps(added, removed)
+/*
+backward->updateProp()
+*/
+void BidirectionalSearcher::updatePropagations(const std::vector<Propagation> &addedPropagations,
+                                              const std::vector<Propagation> &removedPropagations)  {
+  backward->updatePropagations(addedPropagations, removedPropagations);
+}
+
 void BidirectionalSearcher::update(ref<ActionResult> r) {
   switch (r->getKind()) {
   case ActionResult::Kind::Forward: {
@@ -275,6 +282,8 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
       }
       updateForward(fr->current, fr->addedStates, newRemovedStates, fr->targetedConflict);
     }
+    //updateProps()
+    updatePropagations(fr->addedPropagations, fr->removedPropagations);
     //updateForward(fr->current, fr->addedStates, fr->removedStates,
     //              fr->targetedConflict);
     break;
@@ -293,6 +302,8 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
       }
       updateBranch(brr->current, brr->addedStates, newRemovedStates);
     }
+    //updateProps()
+    updatePropagations(brr->addedPropagations, brr->removedPropagations);
     //updateBranch(brr->current, brr->addedStates, brr->removedStates);
     break;
   }
@@ -304,6 +315,8 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
       if (bckr->newPobs.empty())
         ++bckr->state->failedBackwardStepsCounter;
     }
+    //updateProps()
+    updatePropagations(bckr->addedPropagations, bckr->removedPropagations);
     break;
   }
   case ActionResult::Kind::Initialize: {

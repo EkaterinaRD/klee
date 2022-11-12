@@ -12,14 +12,6 @@
 
 namespace klee {
 
-struct Propagation {
-  ExecutionState *state;
-  ProofObligation *pob;
-
-  Propagation(ExecutionState *_state, ProofObligation *_pob) 
-    : state(_state), pob(_pob) {}
-};
-
 
 class ObjectManager {
 private:
@@ -44,7 +36,7 @@ private:
   std::vector<Propagation> propagations;
   std::vector<Propagation> addedPropagations;
   std::vector<Propagation> removedProgations;
-  std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;
+  //std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;
 public:
   ObjectManager(/* args */);
 

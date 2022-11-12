@@ -9,7 +9,7 @@ void ObjectManager::subscribe(Subscriber *s) {
   subscribers.push_back(s);
   std::vector<ExecutionState *> newStates(states.begin(), states.end());
   std::vector<ExecutionState *> rStates;
-  result = new ForwardResult(nullptr, newStates, rStates);
+  result = new ForwardResult(nullptr, newStates, rStates, addedPropagations, removedProgations);
   s->update(result);
 }
 
@@ -57,17 +57,21 @@ void ObjectManager::setResult() {
   switch (_action->getKind()) {
   case BidirectionalAction::Kind::Forward: {
     ref<ForwardAction> action = cast<ForwardAction>(_action);
-    result = new ForwardResult(action->state, addedStates, removedStates, targetedConflict);
+    result = new ForwardResult(action->state, addedStates, removedStates, 
+                               addedPropagations, removedProgations,
+                               targetedConflict);
     break;
   }
   case BidirectionalAction::Kind::Branch: {
     ref<BranchAction> action = cast<BranchAction>(_action);
-    result = new BranchResult(action->state, addedStates, removedStates);
+    result = new BranchResult(action->state, addedStates, removedStates,
+                              addedPropagations, removedProgations);
     break;
   }
   case BidirectionalAction::Kind::Backward: {
     ref<BackwardAction> action = cast<BackwardAction>(_action);
-    result = new BackwardResult(addedPobs, action->state, action->pob);
+    result = new BackwardResult(addedPobs, action->state, action->pob,
+                                addedPropagations, removedProgations);
     break;
   }
   case BidirectionalAction::Kind::Terminate: {
@@ -84,7 +88,7 @@ void ObjectManager::setResult() {
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
   for (auto state : states) {
-    if (newPob->location == state->pc->parent) {
+    if (newPob->location == state->pc->parent && checkStack(state, newPob)) {
       //Propagation p = new Propagation(state, newPob);
       Propagation prop(state, newPob);
       addedPropagations.push_back(prop);
@@ -94,9 +98,12 @@ void ObjectManager::addPob(ProofObligation *newPob) {
 
 void ObjectManager::removePob(ProofObligation *pob) {
   removedPobs.push_back(pob);
-  for (auto p : propagations) {
-    if (p.pob == pob) {
+  for (auto prop : propagations) {
+    /*if (p.pob == pob) {
       removedProgations.push_back(p);
+    }*/
+    if (prop.pob->id == pob->id) {
+      removedProgations.push_back(prop);
     }
   }
   
@@ -144,8 +151,8 @@ void ObjectManager::addState(ExecutionState *state) {
   }*/
   
   for (auto pob : pobs) {
-    if (state->pc->parent == pob->location) {
-      Propagation prop = new Propagation(state, pob);
+    if (state->pc->parent == pob->location && checkStack(state, pob)) {
+      Propagation prop(state, pob);
       addedPropagations.push_back(prop);
     }
   }
@@ -167,8 +174,12 @@ void ObjectManager::removeState(ExecutionState *state) {
   removedStates.push_back(state);
   
   for (auto prop : propagations) {
-    if (prop.state == state) {
-      removedPropagations.push_back(prop);
+    /*if (prop.state == state) {
+      //removedPropagations.push_back(prop);
+      removedProgations.push_back(prop);
+    }*/
+    if (prop.state->id == state->id) {
+      removedProgations.push_back(prop);
     }
   }
 }
@@ -200,6 +211,8 @@ const std::set<ExecutionState *, ExecutionStateIDCompare> &ObjectManager::getIso
 void ObjectManager::updateResult() {
   setResult();
 
+  //checkStack();
+
   //update subscribers
   for (auto s : subscribers) {
     s->update(result);
@@ -219,7 +232,8 @@ void ObjectManager::updateResult() {
     propagations.erase(it);
   }
   addedPropagations.clear();
-  removedPropagations.clear();
+  //removedPropagations.clear();
+  removedProgations.clear();
 
   //update states
   if (isa<ForwardResult>(result)) {
@@ -273,7 +287,7 @@ ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
 
   replayState->targets.insert(Target(pob->root->location));
   states.insert(replayState);
-  result = new ForwardResult(nullptr, {replayState}, {});
+  result = new ForwardResult(nullptr, {replayState}, {}, {}, {});
   updateResult();
   return replayState;
 }

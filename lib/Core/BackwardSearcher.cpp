@@ -9,7 +9,7 @@
 
 namespace klee {
 
-bool checkStack(ExecutionState *state, ProofObligation *pob) {
+/*bool checkStack(ExecutionState *state, ProofObligation *pob) {
   if (state->stack.size() == 0)
     return true;
 
@@ -27,7 +27,7 @@ bool checkStack(ExecutionState *state, ProofObligation *pob) {
     pobIt++;
   }
   return true;
-}
+}*/
 
 RecencyRankedSearcher::RecencyRankedSearcher(unsigned _maxPropagation)
     : maxPropagations(_maxPropagation) {}
@@ -37,17 +37,14 @@ bool RecencyRankedSearcher::empty() { return propagatePobToStates.empty(); }
 void RecencyRankedSearcher::update(ProofObligation *pob) {
   pobs.push_back(pob);
   Target t(pob->location);
-  //видимо приносим из менеджера
   std::unordered_set<ExecutionState *> &states = emanager.at(t);
   for (auto state : states) {
     //оставим здесь                                        в ObjMng
-    if (pob->propagationCount[state] <= maxPropagations && checkStack(state, pob)) {
+    if (pob->propagationCount[state] <= maxPropagations /*&& checkStack(state, pob)*/) {
       propagatePobToStates[pob].insert(state);
     }
   }
 }
-
-//update(diff prop)
 
 std::pair<ProofObligation *, ExecutionState *>
 RecencyRankedSearcher::selectAction() {
@@ -91,7 +88,7 @@ void RecencyRankedSearcher::addState(Target target, ExecutionState *state) {
 
   for (auto pob : pobs) {
     Target pobsTarget(pob->location);
-    if (target == pobsTarget && checkStack(state, pob)) {
+    if (target == pobsTarget /*&& checkStack(state, pob)*/) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
              "Paths are not compatible.");
       propagatePobToStates[pob].insert(state);
@@ -100,6 +97,21 @@ void RecencyRankedSearcher::addState(Target target, ExecutionState *state) {
       if (!state->isIsolated())
         ++state->backwardStepsLeftCounter;
     }
+  }
+}
+
+//updateProp(added, removed)
+/*
+added -> propagatePObToState[prop.po].insert(prop.state)
+{propagatePObToState}\{removed} 
+*/
+void RecencyRankedSearcher::updatePropagations(const std::vector<Propagation> &addedPropagations,
+                                               const std::vector<Propagation> &removedPropagations) {
+  for (auto aprop : addedPropagations) {
+    propagatePobToStates[aprop.pob].insert(aprop.state);
+  }
+  for (auto rprop : removedPropagations) {
+    propagatePobToStates.erase(rprop.pob);
   }
 }
 
