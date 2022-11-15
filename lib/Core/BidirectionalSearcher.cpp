@@ -135,23 +135,32 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
           state.targets.insert(Target(target));
           forward->update(&state, {}, {});
           action = new ForwardAction(&state);
+          //llvm::errs() << "forward action state: " << cast<ForwardAction>(action)->state << "\n";
         } else {
           pauseState(&state, StepKind::Forward);
         }
-      } else
+      } else {
         action = new ForwardAction(&state);
+        //llvm::errs() << "forward action state: " << cast<ForwardAction>(action)->state << "\n";
+        }
       break;
     }
 
     case StepKind::Branch: {
       auto &state = branch->selectState();
+      llvm::errs() << "select state \n";
+      llvm::errs() << "state id: " << state.id << "\n";
+      llvm::errs() << "      addres: " << &state<<  "\n";
       KInstruction *prevKI = state.prevPC;
       if (initialState->getInitPCBlock() != state.getInitPCBlock() &&
           prevKI->inst->isTerminator() &&
           state.multilevel.count(state.getPCBlock()) > 0) {
         pauseState(&state, StepKind::Branch);
       } else {
+        //state.targets.empty();
         action = new BranchAction(&state);
+        llvm::errs() << "check state: " << &state << "\n";
+        llvm::errs() << "branch action state: " << cast<BranchAction>(action)->state << "\n";
       }
       break;
     }
@@ -175,6 +184,10 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
     }
     }
   }
+  if (action->getKind() == BidirectionalAction::Kind::Branch) {
+    llvm::errs() << "action branch state: " << cast<BranchAction>(action)->state << "\n";
+    llvm::errs() << "\n";
+  }  
   return action;
 }
 

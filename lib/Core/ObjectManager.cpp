@@ -50,7 +50,12 @@ ExecutionState *ObjectManager::getEmptyState() {
 }
 
 void ObjectManager::setAction(ref<BidirectionalAction> action) {
+  
   _action = action;
+  if (action->getKind() == BidirectionalAction::Kind::Branch) {
+    llvm::errs() << "state id: " << cast<BranchAction>(action)->state->id << "\n";
+    llvm::errs() << "\n";
+   }
 }
 
 void ObjectManager::setResult() {
@@ -64,6 +69,9 @@ void ObjectManager::setResult() {
   }
   case BidirectionalAction::Kind::Branch: {
     ref<BranchAction> action = cast<BranchAction>(_action);
+    llvm::errs() << "branch action->state \n";
+    llvm::errs() << "state id: " << action->state->id << "\n";
+    llvm::errs() << "      addres: " << action->state <<  "\n";
     result = new BranchResult(action->state, addedStates, removedStates,
                               addedPropagations, removedProgations);
     break;
@@ -79,7 +87,7 @@ void ObjectManager::setResult() {
     break;
   }
   default:
-    //result = new TerminateResult();
+    //initialize
     break;
   }
 }
@@ -102,7 +110,7 @@ void ObjectManager::removePob(ProofObligation *pob) {
     /*if (p.pob == pob) {
       removedProgations.push_back(p);
     }*/
-    if (prop.pob->id == pob->id) {
+    if (prop.pob == pob) {
       removedProgations.push_back(prop);
     }
   }
@@ -122,13 +130,16 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
     state = initialState->copy();
     state->isolated = true;
   } else {
+    llvm::errs() << "empty state: id: " << emptyState->id <<" (" << emptyState <<")"<< " \n";
     state = emptyState->withKInstruction(loc);
+    llvm::errs() << "init branch state: id: " << state->id <<" (" << state <<")"<< " \n";
   }
   isolatedStates.insert(state);
   for (auto target : targets) {
     state->targets.insert(target);
   }
   result = new InitializeResult(loc, *state);
+  //возможно здесь нужен update result
   return state;
 }
 
@@ -143,12 +154,9 @@ ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) 
 }
 
 void ObjectManager::addState(ExecutionState *state) {
-  addedStates.push_back(state);
+  llvm::errs() << "add state: id: " << state->id <<" (" << state <<")"<< " \n";
 
-  /*if (state->isIsolated()) {
-    state = state->copy();
-    mapTargetToStates[ta]
-  }*/
+  addedStates.push_back(state);
   
   for (auto pob : pobs) {
     if (state->pc->parent == pob->location && checkStack(state, pob)) {
@@ -160,8 +168,10 @@ void ObjectManager::addState(ExecutionState *state) {
 
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
+ 
+  llvm::errs() << "add branch state: id: " << newState->id <<" (" << newState <<")"<< " \n";
+  
   addedStates.push_back(newState);
-  //add prop?
   return newState;
 } 
 
@@ -171,6 +181,7 @@ void ObjectManager::removeState(ExecutionState *state) {
   assert(itr == removedStates.end());
 
   state->pc = state->prevPC;
+  llvm::errs() << "remove state: id: " << state->id <<" (" << state <<")"<< " \n";
   removedStates.push_back(state);
   
   for (auto prop : propagations) {
@@ -178,7 +189,7 @@ void ObjectManager::removeState(ExecutionState *state) {
       //removedPropagations.push_back(prop);
       removedProgations.push_back(prop);
     }*/
-    if (prop.state->id == state->id) {
+    if (prop.state == state) {
       removedProgations.push_back(prop);
     }
   }

@@ -5622,6 +5622,10 @@ void Executor::run(ExecutionState &state) {
 
   while (!haltExecution) {
     auto action = searcher->selectAction();
+    // if (action->getKind() == BidirectionalAction::Kind::Branch) {
+    //   llvm::errs() << "action branch state: " << cast<BranchAction>(action)->state << "\n";
+    //   llvm::errs() << "\n";
+    // }
     objectManager.setAction(action);
     executeAction(action);
     objectManager.updateResult();
@@ -5638,6 +5642,8 @@ void Executor::run(ExecutionState &state) {
     for (auto replayState : replayStates) {
       processForest->addRoot(replayState);
     }
+    targetedConflict = ref<TargetedConflict>();
+    objectManager.setTargetedConflict(targetedConflict);
   }
 
   doDumpStates();
@@ -5662,6 +5668,7 @@ void Executor::initBranch(ref<InitializeAction> action) {
   }
   processForest->addRoot(state);
   timers.invoke();
+  //delete initialState?
 }
 
 void Executor::goForward(ref<BidirectionalAction> a) {
@@ -5681,8 +5688,8 @@ void Executor::goForward(ref<BidirectionalAction> a) {
   if (::dumpStates) dumpStates();
   if (::dumpPForest) dumpPForest();
 
-  targetedConflict = ref<TargetedConflict>();
-  objectManager.setTargetedConflict(targetedConflict);
+  /*targetedConflict = ref<TargetedConflict>();
+  objectManager.setTargetedConflict(targetedConflict);*/
 }
 
 void Executor::goBackward(ref<BackwardAction> action) {

@@ -433,8 +433,11 @@ void GuidedSearcher::innerUpdate(
       removedTStates[i].push_back(state);
     }
   }
-
+  
+  //llvm::errs() << "current: " << current->id << "\n";
+  
   if (current)
+    
     for (auto i : current->targets)
       targets.insert(i);
 

@@ -111,7 +111,8 @@ void RecencyRankedSearcher::updatePropagations(const std::vector<Propagation> &a
     propagatePobToStates[aprop.pob].insert(aprop.state);
   }
   for (auto rprop : removedPropagations) {
-    propagatePobToStates.erase(rprop.pob);
+    //auto rit = propagatePobToStates.find(rprop.pob);
+    propagatePobToStates[rprop.pob].erase(rprop.state);
   }
 }
 

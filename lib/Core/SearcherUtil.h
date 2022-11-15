@@ -71,7 +71,7 @@ struct ForwardAction : public BidirectionalAction {
 struct BranchAction : public ForwardAction {
   friend class ref<BranchAction>;
 
-  ExecutionState *state;
+  // ExecutionState *state;
 
   BranchAction(ExecutionState *_state) : ForwardAction(_state) {}
 

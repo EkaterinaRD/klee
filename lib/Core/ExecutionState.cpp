@@ -133,6 +133,7 @@ ExecutionState::ExecutionState(KFunction *kf, KBlock *kb) :
 }
 
 ExecutionState::~ExecutionState() {
+  llvm::errs() << "delete state: id: " << this->id <<" (" << this <<")"<< " \n";
   for (const auto &cur_mergehandler: openMergeStack){
     cur_mergehandler->removeOpenState(this);
   }
@@ -220,16 +221,18 @@ ExecutionState *ExecutionState::withKBlock(KBlock *kb) const {
 ExecutionState *ExecutionState::withKInstruction(KInstruction *ki) const {
   assert(stack.size() == 0);
   ExecutionState *newState = new ExecutionState(*this);
+  //llvm::errs() << "init brancn state(ExSt): id: " << newState->id <<" (" << newState <<")"<< " \n";
   newState->setID();
   newState->pushFrame(nullptr, ki->parent->parent);
   newState->stackBalance = 0;
   newState->initPC = ki->parent->instructions;
   while(newState->initPC != ki) {
     ++newState->initPC;
-  }
+  }         
   newState->pc = newState->initPC;
   newState->prevPC = newState->pc;
   newState->path = Path({ki->parent});
+  llvm::errs() << "init brancn state(ExSt): id: " << newState->id <<" (" << newState <<")"<< " \n";
   return newState;
 }
 
