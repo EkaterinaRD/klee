@@ -171,14 +171,14 @@ struct ForwardResult : ActionResult {
   const std::vector<ExecutionState *> &addedStates;
   const std::vector<ExecutionState *> &removedStates;
   //prop"ы
-  const std::vector<Propagation> &addedPropagations;
-  const std::vector<Propagation> &removedPropagations;
+  std::vector<Propagation> &addedPropagations;
+  std::vector<Propagation> &removedPropagations;
   ref<TargetedConflict> targetedConflict;
 
   ForwardResult(ExecutionState *_s, const std::vector<ExecutionState *> &_a,
                 const std::vector<ExecutionState *> &_r,
-                const std::vector<Propagation> &_ap,
-                const std::vector<Propagation> &_rp,
+                std::vector<Propagation> &_ap,
+                std::vector<Propagation> &_rp,
                 ref<TargetedConflict> _c = ref<TargetedConflict>()) 
     : current(_s), addedStates(_a), removedStates(_r), 
       addedPropagations(_ap), removedPropagations(_rp),
@@ -199,13 +199,13 @@ struct BranchResult : ActionResult {
   const std::vector<ExecutionState *> &removedStates;
   
   //propы
-  const std::vector<Propagation> &addedPropagations;
-  const std::vector<Propagation> &removedPropagations;
+  std::vector<Propagation> &addedPropagations;
+  std::vector<Propagation> &removedPropagations;
 
   BranchResult(ExecutionState *_s, const std::vector<ExecutionState *> &a,
                const std::vector<ExecutionState *> &r,
-               const std::vector<Propagation> &ap,
-               const std::vector<Propagation> &rp)
+               std::vector<Propagation> &ap,
+               std::vector<Propagation> &rp)
     : current(_s), addedStates(a), removedStates(r),
       addedPropagations(ap), removedPropagations(rp) {};
 
@@ -223,11 +223,11 @@ struct BackwardResult : ActionResult {
   ExecutionState *state;
   ProofObligation *oldPob;
 
-  const std::vector<Propagation> &addedPropagations;
-  const std::vector<Propagation> &removedPropagations;
+  std::vector<Propagation> &addedPropagations;
+  std::vector<Propagation> &removedPropagations;
 
   BackwardResult(std::vector<ProofObligation*> _newPobs, ExecutionState *_state, ProofObligation *_oldPob,
-                 const std::vector<Propagation> _ap, std::vector<Propagation> _rp)
+                 std::vector<Propagation> &_ap, std::vector<Propagation> &_rp)
     : newPobs(_newPobs), state(_state), oldPob(_oldPob),
       addedPropagations(_ap), removedPropagations(_rp) {}
 

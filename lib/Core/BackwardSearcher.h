@@ -40,8 +40,8 @@ public:
   std::pair<ProofObligation *, ExecutionState *> selectAction() override;
   void addState(Target target, ExecutionState *state) override;
   void update(ProofObligation *pob) override;
-  void updatePropagations(const std::vector<Propagation> &addedPropagations,
-                          const std::vector<Propagation> &removedPropagations);
+  void updatePropagations(std::vector<Propagation> &addedPropagations,
+                          std::vector<Propagation> &removedPropagations);
   void removePob(ProofObligation *pob) override;
   bool empty() override;
 };

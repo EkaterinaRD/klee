@@ -135,32 +135,24 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
           state.targets.insert(Target(target));
           forward->update(&state, {}, {});
           action = new ForwardAction(&state);
-          //llvm::errs() << "forward action state: " << cast<ForwardAction>(action)->state << "\n";
         } else {
           pauseState(&state, StepKind::Forward);
         }
       } else {
         action = new ForwardAction(&state);
-        //llvm::errs() << "forward action state: " << cast<ForwardAction>(action)->state << "\n";
         }
       break;
     }
 
     case StepKind::Branch: {
       auto &state = branch->selectState();
-      llvm::errs() << "select state \n";
-      llvm::errs() << "state id: " << state.id << "\n";
-      llvm::errs() << "      addres: " << &state<<  "\n";
       KInstruction *prevKI = state.prevPC;
       if (initialState->getInitPCBlock() != state.getInitPCBlock() &&
           prevKI->inst->isTerminator() &&
           state.multilevel.count(state.getPCBlock()) > 0) {
         pauseState(&state, StepKind::Branch);
       } else {
-        //state.targets.empty();
         action = new BranchAction(&state);
-        llvm::errs() << "check state: " << &state << "\n";
-        llvm::errs() << "branch action state: " << cast<BranchAction>(action)->state << "\n";
       }
       break;
     }
@@ -184,10 +176,6 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
     }
     }
   }
-  if (action->getKind() == BidirectionalAction::Kind::Branch) {
-    llvm::errs() << "action branch state: " << cast<BranchAction>(action)->state << "\n";
-    llvm::errs() << "\n";
-  }  
   return action;
 }
 
@@ -216,12 +204,14 @@ void BidirectionalSearcher::updateForward(
 
   //llvm::errs() << "Hello\n";
   if (targetedConflict) {
-    //llvm::errs() << "Hello\n";
+    llvm::errs() << "Hello_1\n";
     if (!rootBlocks.count(targetedConflict->target->basicBlock) &&
         !reachableBlocks.count(targetedConflict->target->basicBlock)) {
       rootBlocks.insert(targetedConflict->target->basicBlock);
       initializer->addConflictInit(targetedConflict->conflict,
                                    targetedConflict->target);
+      llvm::errs() << "Hello_2\n";
+      //надо как то вернуть менеджеру чтобы он построил проп и отдал бэквард
       ProofObligation *pob = new ProofObligation(targetedConflict->target);
 
       //llvm::errs() << "Hello\n";
@@ -274,8 +264,8 @@ void BidirectionalSearcher::updateInitialize(KInstruction *location,
 /*
 backward->updateProp()
 */
-void BidirectionalSearcher::updatePropagations(const std::vector<Propagation> &addedPropagations,
-                                              const std::vector<Propagation> &removedPropagations)  {
+void BidirectionalSearcher::updatePropagations(std::vector<Propagation> &addedPropagations,
+                                               std::vector<Propagation> &removedPropagations)  {
   backward->updatePropagations(addedPropagations, removedPropagations);
 }
 
@@ -459,8 +449,6 @@ ref<BidirectionalAction> GuidedOnlySearcher::selectAction() {
         searcher->update(&state, {}, {});
         action = new ForwardAction(&state);
       } else {
-        /*searcher->update(nullptr, {}, {&state});
-        ex->pauseState(state);*/
         pauseState(&state);
       }
     } else

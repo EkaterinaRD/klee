@@ -434,7 +434,6 @@ void GuidedSearcher::innerUpdate(
     }
   }
   
-  //llvm::errs() << "current: " << current->id << "\n";
   
   if (current)
     

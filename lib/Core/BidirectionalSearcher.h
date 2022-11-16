@@ -70,8 +70,8 @@ private:
   void updateBackward(std::vector<ProofObligation *> newPobs,
                       ProofObligation *oldPob);
   void updateInitialize(KInstruction *location, ExecutionState &state);
-  void updatePropagations(const std::vector<Propagation> &addedPropagations,
-                          const std::vector<Propagation> &removedPropagations);
+  void updatePropagations(std::vector<Propagation> &addedPropagations,
+                          std::vector<Propagation> &removedPropagations);
 
   void addPob(ProofObligation *);
   void removePob(ProofObligation *);

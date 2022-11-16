@@ -36,14 +36,14 @@ bool RecencyRankedSearcher::empty() { return propagatePobToStates.empty(); }
 
 void RecencyRankedSearcher::update(ProofObligation *pob) {
   pobs.push_back(pob);
-  Target t(pob->location);
+  /*Target t(pob->location);
   std::unordered_set<ExecutionState *> &states = emanager.at(t);
   for (auto state : states) {
     //оставим здесь                                        в ObjMng
-    if (pob->propagationCount[state] <= maxPropagations /*&& checkStack(state, pob)*/) {
+    if (pob->propagationCount[state] <= maxPropagations && checkStack(state, pob)) {
       propagatePobToStates[pob].insert(state);
     }
-  }
+  }*/
 }
 
 std::pair<ProofObligation *, ExecutionState *>
@@ -69,26 +69,15 @@ RecencyRankedSearcher::selectAction() {
 
 void RecencyRankedSearcher::addState(Target target, ExecutionState *state) {
   //в менеджер и когда приходит из brunch
-  if (state->isIsolated()) {
+  /*if (state->isIsolated()) {
     state = state->copy();
     emanager.insert(target, *state);
-  }
-
-  //из менеджера приходит diff prop
-  /*for (auto pob : pobs) {
-    for (auto prop : addedPropagations) {
-      if (pob == prop.pob) {
-        propagatePobToStates[prop.pob].insert(prop.state);
-      }
-      if (!prop.state->isIsolated()) {
-        ++prop.state->backwardStepsLeftCounter;
-      }
-    }
   }*/
 
-  for (auto pob : pobs) {
+  //в менеджер
+  /*for (auto pob : pobs) {
     Target pobsTarget(pob->location);
-    if (target == pobsTarget /*&& checkStack(state, pob)*/) {
+    if (target == pobsTarget && checkStack(state, pob)) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
              "Paths are not compatible.");
       propagatePobToStates[pob].insert(state);
@@ -97,7 +86,7 @@ void RecencyRankedSearcher::addState(Target target, ExecutionState *state) {
       if (!state->isIsolated())
         ++state->backwardStepsLeftCounter;
     }
-  }
+  }*/
 }
 
 //updateProp(added, removed)
@@ -105,13 +94,14 @@ void RecencyRankedSearcher::addState(Target target, ExecutionState *state) {
 added -> propagatePObToState[prop.po].insert(prop.state)
 {propagatePObToState}\{removed} 
 */
-void RecencyRankedSearcher::updatePropagations(const std::vector<Propagation> &addedPropagations,
-                                               const std::vector<Propagation> &removedPropagations) {
+void RecencyRankedSearcher::updatePropagations(std::vector<Propagation> &addedPropagations,
+                                               std::vector<Propagation> &removedPropagations) {
   for (auto aprop : addedPropagations) {
     propagatePobToStates[aprop.pob].insert(aprop.state);
   }
   for (auto rprop : removedPropagations) {
     //auto rit = propagatePobToStates.find(rprop.pob);
+    
     propagatePobToStates[rprop.pob].erase(rprop.state);
   }
 }
