@@ -4,6 +4,9 @@
 #include "ExecutionState.h"
 #include "Path.h"
 #include "ProofObligation.h"
+
+// #include "ObjectManager.h"
+
 #include "klee/Module/KInstruction.h"
 #include "klee/Module/KModule.h"
 #include <optional>
@@ -15,6 +18,8 @@ namespace klee {
 
 class ExecutionState;
 class Executor;
+
+class ObjectManager;
 
 struct BidirectionalAction {
 friend class ref<BidirectionalAction>;
@@ -116,7 +121,8 @@ struct InitializeAction : public BidirectionalAction {
 
 struct SearcherConfig {
   Executor *executor;
-  ExecutionState *initialState;
+  //ExecutionState *initialState;
+  ObjectManager *objectManager;
 };
 
 

@@ -13,12 +13,14 @@
 #include "Initializer.h"
 #include "ProofObligation.h"
 #include "SearcherUtil.h"
+
+#include "Subscriber.h"
+#include "ObjectManager.h"
+
 #include "klee/Module/KModule.h"
 #include <memory>
 #include <unordered_set>
 #include <vector>
-
-#include "Subscriber.h"
 
 namespace klee {
 
@@ -42,6 +44,7 @@ private:
   enum class StepKind { Initialize, Forward, Branch, Backward, Terminate };
 
   Executor *ex; // hack
+  ObjectManager *objMng;
   ExecutionState *initialState;
   std::vector<ExecutionState *> pausedStates;
   void pauseState(ExecutionState *state, BidirectionalSearcher::StepKind stepKind);

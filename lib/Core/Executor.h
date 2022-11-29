@@ -753,6 +753,7 @@ public:
   void initBranch(ref<InitializeAction> action);
   void goForward(ref<BidirectionalAction> action);
   void goBackward(ref<BackwardAction> action);
+  void addPob(ProofObligation *pob);
   /*ref<InitializeResult> initBranch(ref<InitializeAction> action);
   ref<ActionResult> goForward(ref<BidirectionalAction> action);
   ref<BackwardResult> goBackward(ref<BackwardAction> action);*/

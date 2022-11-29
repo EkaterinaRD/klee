@@ -59,6 +59,9 @@ public:
   ExecutionState *initBranch(ref<InitializeAction> action);
 
   void setTargetedConflict(ref<TargetedConflict> tc);
+
+  void addStateToPob(ExecutionState *state);
+  // void addPobToState(ProofObligation *pob);
   //
   
   ExecutionState *createState(llvm::Function *f, KModule *kmodule);

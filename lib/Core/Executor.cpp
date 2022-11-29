@@ -5528,6 +5528,10 @@ KBlock *Executor::calculateTargetByBlockHistory(ExecutionState &state) {
   return nearestBlock;
 }
 
+void Executor::addPob(ProofObligation *pob) {
+  objectManager.addPob(pob);
+}
+
 void Executor::run(ExecutionState &state) {
   objectManager.setInitialAndEmtySt(&state);
 
@@ -5536,7 +5540,8 @@ void Executor::run(ExecutionState &state) {
 
   SearcherConfig cfg;
   cfg.executor = this;
-  cfg.initialState = objectManager.getInitialState();
+  //cfg.initialState = objectManager.getInitialState();
+  cfg.objectManager = &objectManager;
 
   if (usingSeeds) {
     std::vector<SeedInfo> &v = seedMap->at(&state);

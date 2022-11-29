@@ -204,16 +204,18 @@ void BidirectionalSearcher::updateForward(
 
   //llvm::errs() << "Hello\n";
   if (targetedConflict) {
-    llvm::errs() << "Hello_1\n";
+    //llvm::errs() << "Hello_1\n";
     if (!rootBlocks.count(targetedConflict->target->basicBlock) &&
         !reachableBlocks.count(targetedConflict->target->basicBlock)) {
       rootBlocks.insert(targetedConflict->target->basicBlock);
       initializer->addConflictInit(targetedConflict->conflict,
                                    targetedConflict->target);
-      llvm::errs() << "Hello_2\n";
-      //надо как то вернуть менеджеру чтобы он построил проп и отдал бэквард
+      //llvm::errs() << "Hello_2\n";
+      //надо как то вернуть менеджеру чтобы он построил проп и отдал бэкварду
       ProofObligation *pob = new ProofObligation(targetedConflict->target);
-
+      //ex->addPob(pob);
+      objMng->addPob(pob);
+      llvm::errs() << "add pob: id: " << pob->id << "("<< pob <<")\n";
       //llvm::errs() << "Hello\n";
       if (DebugBidirectionalSearcher) {
         llvm::errs() << "Add new proof obligation.\n";
@@ -335,7 +337,9 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
 BidirectionalSearcher::BidirectionalSearcher(const SearcherConfig &cfg)
     : ticker({80, 10, 5, 5}) {
   ex = cfg.executor;
-  initialState = cfg.initialState;
+  //initialState = cfg.initialState;
+  objMng = cfg.objectManager;
+  initialState = objMng->getInitialState();
   forward = new GuidedSearcher(constructUserSearcher(*cfg.executor), true);
   branch = new GuidedSearcher(
       std::unique_ptr<ForwardSearcher>(new BFSSearcher()), false);
