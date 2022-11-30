@@ -71,6 +71,11 @@ void ObjectManager::setResult() {
                               addedPropagations, removedProgations);
     break;
   }
+  case BidirectionalAction::Kind::ReachedStates: {
+    ref<ReachedStatesAction> action = cast<ReachedStatesAction>(_action);
+    result = new ReachedStatesResult(addedPropagations, removedProgations);
+    break;
+  }
   case BidirectionalAction::Kind::Backward: {
     ref<BackwardAction> action = cast<BackwardAction>(_action);
     result = new BackwardResult(addedPobs, action->state, action->pob,
@@ -163,34 +168,6 @@ ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) 
 void ObjectManager::addState(ExecutionState *state) {
 
   addedStates.push_back(state);
-  // if (state->isIsolated()) {
-  //   llvm::errs() << "add isolsted state: id: " << state->id << "("<< state <<")\n";
-  // } else {
-  //   llvm::errs() << "add state: id: " << state->id << "("<< state <<")\n";
-  // }
-
-  /*if (state->isIsolated()) {
-    //Target target = Target(state->pc->parent);
-    state->copy();
-    //mapTargetToStates[target].insert(state);
-  }*/
-
-  //addStateToPob(state);
-
-  // for (auto pob : pobs) {
-  //   if (state->pc->parent == pob->location && checkStack(state, pob)) {
-  //     assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
-  //            "Paths are not compatible.");
-  //     Propagation prop(state, pob);
-  //     //llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
-  //     addedPropagations.push_back(prop);
-
-  //     if (!state->isIsolated()) {
-  //        ++state->backwardStepsLeftCounter;
-  //     }
-  //   }
-  // }
-  
 }
 
 //rename forkState?
@@ -198,29 +175,6 @@ ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
  
   addedStates.push_back(newState);
-  // if (newState->isIsolated()) {
-  //   llvm::errs() << "add isolate state: id: " << newState->id << "(" << newState << ")\n";
-  // } else {
-  //   llvm::errs() << "add state: id: " << newState->id << "(" << newState << ")\n";
-  // }
-
-
-  // if (newState->isIsolated()) {
-  //   ExecutionState *copyState = newState->copy();
-  //   addStateToPob(copyState);
-  // } else {
-  //   addStateToPob(newState);
-  // }
-
-  /*for (auto pob : pobs) {
-    if (newState->pc->parent == pob->location && checkStack(newState, pob)) {
-      Propagation prop(newState, pob);
-      llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
-      addedPropagations.push_back(prop);
-    }
-  }*/
-
-  //addStateToPob(newState);
 
   return newState;
 } 
@@ -281,17 +235,36 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
 }
 
 void ObjectManager::addPobToState(ProofObligation *pob) {
-  for (auto state : isolatedStates) {
+  //на самом то деле надо добовлять побы к пропан из состояний, которые достгли таргет
+  //и потому думаю надо создать отдельный список таких состояний
+  //однако как это извлечь из серчера, который и вычисляет эти ричд состояния
+  for (auto state : targetedStates) {
     if (state->pc->parent == pob->location && checkStack(state, pob)) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
-      state = state->copy();
       Propagation prop(state, pob);
       //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
-      
       addedPropagations.push_back(prop);
     }
   }
+}
+
+void ObjectManager::doSomething() {
+  ref<ReachedStatesAction> act = cast<ReachedStatesAction>(_action);
+  //по-хорошему сюда asser надобно
+  std::map<Target, std::unordered_set<ExecutionState *>> reached = act->reached;
+
+  for (auto &targetStates : reached) {
+    for (auto state : targetStates.second) {
+      if (targetStates.first.atReturn() && state->stack.size() > 0) {
+        continue;
+      }
+      ExecutionState *copyState = state->copy();
+      targetedStates.insert(copyState);
+    }
+  }
+  
+  //createPropagations();
 }
 
 void ObjectManager::createPropagations() {
@@ -306,27 +279,41 @@ void ObjectManager::createPropagations() {
     for (auto state : addedStates) {
       addStateToPob(state);
     }
+    //возможно лишнее, тк при форвард побы появляются после апдейт
     for (auto pob : addedPobs) {
       addPobToState(pob);
     }
     break;
   }
-  case BidirectionalAction::Kind::Branch: {
+  // case BidirectionalAction::Kind::Branch: {
+  //   if (!addedStates.empty()) {
+  //     for (auto state : isolatedStates) {
+  //       state = state->copy();
+  //       addStateToPob(state);
+  //     }
+  //   }
 
-    // ref<BranchAction> act = cast<BranchAction>(_action);
-    // ExecutionState *currentState = act->state->copy();
-    // addStateToPob(currentState);
+  //   break;
+  // }
+  case BidirectionalAction::Kind::ReachedStates: {
+    // ref<ReachedStatesAction> act = cast<ReachedStatesAction>(_action);
+    // std::map<Target, std::unordered_set<ExecutionState *>> reached = act->reached;
 
-    // for (auto state : isolatedStates) {
-    //   //ExecutionState *copyState = state->copy();
-    //   addStateToPob(copyState);
+    // for (auto &targetStates : reached) {
+    //   for (auto state : targetStates.second) {
+    //     if (targetStates.first.atReturn() && state->stack.size() > 0) {
+    //       continue;
+    //     }
+    //     // ExecutionState *copyState = state->copy();
+    //     // addStateToPob(copyState);
+        
+    //     //add to targetedStates;
+    //     addStateToPob(state->copy());
+    //   }
     // }
 
-    if (!addedStates.empty()) {
-      for (auto state : isolatedStates) {
-        state = state->copy();
-        addStateToPob(state);
-      }
+    for (auto state : targetedStates) {
+      addStateToPob(state);
     }
 
     break;
@@ -378,6 +365,11 @@ void ObjectManager::updateResult() {
       assert(it2 != states.end());
       states.erase(it2);
       delete state;
+    }
+    if (!addedPobs.empty()) {
+      for (auto pob : addedPobs) {
+        addPobToState(pob);
+      }
     }
   } else if (isa<BranchResult>(result)) {
     ref<BranchResult> brr = cast<BranchResult>(result);

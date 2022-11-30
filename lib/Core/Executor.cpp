@@ -5400,6 +5400,10 @@ void Executor::executeAction(ref<BidirectionalAction> action) {
     goForward(cast<BranchAction>(action));
     break;
   }
+  case BidirectionalAction::Kind::ReachedStates: {
+    objectManager.doSomething();
+    break;
+  }
   case BidirectionalAction::Kind::Backward:
     goBackward(cast<BackwardAction>(action));
     break;

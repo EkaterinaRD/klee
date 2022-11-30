@@ -41,13 +41,15 @@ public:
   ~BidirectionalSearcher() override;
 
 private:
-  enum class StepKind { Initialize, Forward, Branch, Backward, Terminate };
+  enum class StepKind { Initialize, Forward, Branch, Backward, Terminate, ReachedStates};
 
   Executor *ex; // hack
   ObjectManager *objMng;
   ExecutionState *initialState;
   std::vector<ExecutionState *> pausedStates;
   void pauseState(ExecutionState *state, BidirectionalSearcher::StepKind stepKind);
+  std::map<Target, std::unordered_set<ExecutionState *>> reached;
+  bool reachedStatesFlag;
 
   GuidedSearcher *forward;
   GuidedSearcher *branch;

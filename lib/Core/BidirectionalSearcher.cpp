@@ -60,6 +60,12 @@ llvm::cl::opt<bool> PruneStates(
 namespace klee {
 
 BidirectionalSearcher::StepKind BidirectionalSearcher::selectStep() {
+  //if reached not empty
+  //return reachedStep
+  if (reachedStatesFlag) {
+    return StepKind::ReachedStates;
+  }
+
   size_t initial_choice = ticker.getCurrent();
   size_t choice = initial_choice;
 
@@ -114,6 +120,8 @@ void BidirectionalSearcher::pauseState(ExecutionState *state, BidirectionalSearc
 
 ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
   ref<BidirectionalAction> action;
+  //if ReachedStep return ReachedStatesAction(reachedStates)
+  //and clear reached!
   while (action.isNull()) {
     switch (selectStep()) {
 
@@ -174,6 +182,11 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
       action = new TerminateAction();
       break;
     }
+
+    case StepKind::ReachedStates: {
+      action = new ReachedStatesAction(reached);
+      break;
+    }
     }
   }
   return action;
@@ -230,9 +243,13 @@ void BidirectionalSearcher::updateForward(
 void BidirectionalSearcher::updateBranch(
     ExecutionState *current, const std::vector<ExecutionState *> &addedStates,
     const std::vector<ExecutionState *> &removedStates) {
-  std::map<Target, std::unordered_set<ExecutionState *>> reached;
+  //std::map<Target, std::unordered_set<ExecutionState *>> reached;
 
   branch->update(current, addedStates, removedStates, reached);
+  //if !reached.empty 
+  //reachedStep = true & save reached
+  if (!reached.empty())
+    reachedStatesFlag = true;
 
   for (auto &targetStates : reached) {
     for (auto state : targetStates.second) {
@@ -312,6 +329,17 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
     //updateBranch(brr->current, brr->addedStates, brr->removedStates);
     break;
   }
+  case ActionResult::Kind::ReachedStates: {
+    //backward->updatePropagation
+    //reached.clear();
+    //reachedStatesFlag = false;
+
+    ref<ReachedStatesResult> rsr = cast<ReachedStatesResult>(r);
+    backward->updatePropagations(rsr->addedPropagations, rsr->removedPropagations);
+    reached.clear();
+    reachedStatesFlag = false;
+    break;
+  }
   case ActionResult::Kind::Backward: {
     auto bckr = cast<BackwardResult>(r);
     updateBackward(bckr->newPobs, bckr->oldPob);
@@ -339,12 +367,15 @@ BidirectionalSearcher::BidirectionalSearcher(const SearcherConfig &cfg)
   ex = cfg.executor;
   //initialState = cfg.initialState;
   objMng = cfg.objectManager;
+
   initialState = objMng->getInitialState();
   forward = new GuidedSearcher(constructUserSearcher(*cfg.executor), true);
   branch = new GuidedSearcher(
       std::unique_ptr<ForwardSearcher>(new BFSSearcher()), false);
   backward = new RecencyRankedSearcher(MaxCycles);
   initializer = new ConflictCoreInitializer(initialState->pc);
+
+  reachedStatesFlag = false;
 }
 
 BidirectionalSearcher::~BidirectionalSearcher() {

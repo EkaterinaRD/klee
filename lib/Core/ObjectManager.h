@@ -36,7 +36,8 @@ private:
   std::vector<Propagation> propagations;
   std::vector<Propagation> addedPropagations;
   std::vector<Propagation> removedProgations;
-  std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;
+  //std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;
+  std::set<ExecutionState *, ExecutionStateIDCompare> targetedStates;
 public:
   ObjectManager(/* args */);
 
@@ -65,6 +66,7 @@ public:
   // void addPobToState(ProofObligation *pob);
   //
   void createPropagations();
+  void doSomething();
   
   ExecutionState *createState(llvm::Function *f, KModule *kmodule);
   void addState(ExecutionState *state);

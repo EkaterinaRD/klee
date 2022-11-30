@@ -27,7 +27,7 @@ protected:
   /// @brief Required by klee::ref-managed objects
   class ReferenceCounter _refCount;
 public:
-  enum class Kind { Initialize, Forward, Branch, Backward, Terminate };
+  enum class Kind { Initialize, Forward, Branch, Backward, Terminate, ReachedStates };
 
   BidirectionalAction() = default;
   virtual ~BidirectionalAction() = default;
@@ -85,6 +85,22 @@ struct BranchAction : public ForwardAction {
     return A->getKind() == Kind::Branch;
   }
   static bool classof(const BranchAction *) { return true; }
+};
+
+struct ReachedStatesAction : public BidirectionalAction {
+  friend class ref<ReachedStatesAction>;
+
+  std::map<Target, std::unordered_set<ExecutionState *>> reached;
+
+  ReachedStatesAction(std::map<Target, std::unordered_set<ExecutionState *>> _reached) 
+    : reached(_reached) {}
+
+  Kind getKind() const { return Kind::ReachedStates; }
+  static bool classof(const BidirectionalAction *A) {
+    return A->getKind() == Kind::ReachedStates;
+  }
+  static bool classof(const ReachedStatesAction *) { return true; }
+  
 };
 
 struct BackwardAction : public BidirectionalAction {
@@ -160,7 +176,7 @@ protected:
   /// @brief Required by klee::ref-managed objects
   class ReferenceCounter _refCount;
 public:
-  enum class Kind { Initialize, Forward, Branch, Backward, Terminate };
+  enum class Kind { Initialize, Forward, Branch, Backward, Terminate, ReachedStates};
 
   ActionResult() = default;
   virtual ~ActionResult() = default;
@@ -221,6 +237,24 @@ struct BranchResult : ActionResult {
   }
   static bool classof(const BranchResult *) { return true; }
 };
+
+struct ReachedStatesResult : ActionResult {
+  friend class ref<ReachedStatesResult>;
+
+  std::vector<Propagation> &addedPropagations;
+  std::vector<Propagation> &removedPropagations;
+
+  ReachedStatesResult(std::vector<Propagation> &ap,
+                      std::vector<Propagation> &rp)
+    : addedPropagations(ap), removedPropagations(rp) {};
+
+  Kind getKind() const { return Kind::ReachedStates; }
+  static bool classof(const ActionResult *A) {
+    return A->getKind() == Kind::ReachedStates;
+  }
+  static bool classof(const ReachedStatesResult *) { return true; }
+};
+
 
 struct BackwardResult : ActionResult {
   friend class ref<BackwardResult>;
