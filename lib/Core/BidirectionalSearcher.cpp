@@ -215,7 +215,7 @@ void BidirectionalSearcher::updateForward(
       ProofObligation *pob = new ProofObligation(targetedConflict->target);
       //ex->addPob(pob);
       objMng->addPob(pob);
-      llvm::errs() << "add pob: id: " << pob->id << "("<< pob <<")\n";
+      //llvm::errs() << "add pob: id: " << pob->id << "("<< pob <<")\n";
       //llvm::errs() << "Hello\n";
       if (DebugBidirectionalSearcher) {
         llvm::errs() << "Add new proof obligation.\n";

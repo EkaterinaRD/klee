@@ -54,6 +54,8 @@ void ObjectManager::setAction(ref<BidirectionalAction> action) {
   _action = action;
 }
 
+//add TargetConflictResult and ...Action
+
 void ObjectManager::setResult() {
   switch (_action->getKind()) {
   case BidirectionalAction::Kind::Forward: {
@@ -88,29 +90,28 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
-  if (_action->getKind() == BidirectionalAction::Kind::Forward) {
-    for (auto state : states) {
-      if (newPob->location == state->pc->parent && checkStack(state, newPob)) {
-        Propagation prop(state, newPob);
-        addedPropagations.push_back(prop);
-      }
-    }
-  } else if (_action->getKind() == BidirectionalAction::Kind::Branch) {
-    for (auto istate : isolatedStates) {
-      if (newPob->location == istate->pc->parent && checkStack(istate, newPob)) {
-        Propagation prop(istate, newPob);
-        addedPropagations.push_back(prop);
-      }
-    }
-  }
+  llvm::errs() << "add pob: id: " << newPob->id << "(" << newPob << ")\n";
+  // if (_action->getKind() == BidirectionalAction::Kind::Forward) {
+  //   for (auto state : states) {
+  //     if (newPob->location == state->pc->parent && checkStack(state, newPob)) {
+  //       Propagation prop(state, newPob);
+  //       addedPropagations.push_back(prop);
+  //     }
+  //   }
+  // } else if (_action->getKind() == BidirectionalAction::Kind::Branch) {
+  //   for (auto istate : isolatedStates) {
+  //     if (newPob->location == istate->pc->parent && checkStack(istate, newPob)) {
+  //       Propagation prop(istate, newPob);
+  //       addedPropagations.push_back(prop);
+  //     }
+  //   }
+  // }
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {
   removedPobs.push_back(pob);
+  llvm::errs() << "remove pob: id: " << pob ->id << "(" << pob << ")\n";
   for (auto prop : propagations) {
-    /*if (p.pob == pob) {
-      removedProgations.push_back(p);
-    }*/
     if (prop.pob == pob) {
       removedProgations.push_back(prop);
     }
@@ -138,21 +139,11 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
     state->targets.insert(target);
   }
   llvm::errs() << "isolate state: id: " << state->id << "(" << state << ")\n";
-  //еще надо в проп добавить
-  //ExecutionState *copyState = state->copy();
-  //llvm::errs() << "copy state: id: " << copyState->id << "("<< copyState <<")\n";
-  //mapTargetToStates[target].insert(state);
-  /*ExecutionState *copyState = state->copy();
-  addStateToPob(copyState);*/
-  for (auto pob : pobs) {
-    if (state->pc->parent == pob->location && checkStack(state, pob)) {
-      assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
-             "Paths are not compatible.");
-      Propagation prop(state, pob);
-      //llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
-      addedPropagations.push_back(prop);
-    }
-  }
+
+  // ExecutionState *copyState = state->copy();
+  // llvm::errs() <<"copy isolate state("<< state->id <<"): id: "<< copyState->id <<"("<< copyState <<")\n";
+  // addStateToPob(copyState);
+
   result = new InitializeResult(loc, *state);
   return state;
 }
@@ -166,8 +157,6 @@ ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) 
   ExecutionState *state = new ExecutionState(kmodule->functionMap[f], kmodule->functionMap[f]->blockMap[&*f->begin()]);
   return state;
 }
-
-//void ObjectManager::addPropagate(ExecutionState *state) 
 
 void ObjectManager::addState(ExecutionState *state) {
 
@@ -186,19 +175,19 @@ void ObjectManager::addState(ExecutionState *state) {
 
   //addStateToPob(state);
 
-  for (auto pob : pobs) {
-    if (state->pc->parent == pob->location && checkStack(state, pob)) {
-      assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
-             "Paths are not compatible.");
-      Propagation prop(state, pob);
-      //llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
-      addedPropagations.push_back(prop);
+  // for (auto pob : pobs) {
+  //   if (state->pc->parent == pob->location && checkStack(state, pob)) {
+  //     assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
+  //            "Paths are not compatible.");
+  //     Propagation prop(state, pob);
+  //     //llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
+  //     addedPropagations.push_back(prop);
 
-      if (!state->isIsolated()) {
-         ++state->backwardStepsLeftCounter;
-      }
-    }
-  }
+  //     if (!state->isIsolated()) {
+  //        ++state->backwardStepsLeftCounter;
+  //     }
+  //   }
+  // }
   
 }
 
@@ -214,12 +203,12 @@ ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   }
 
 
-  if (newState->isIsolated()) {
-    ExecutionState *copyState = newState->copy();
-    addStateToPob(copyState);
-  } else {
-    addStateToPob(newState);
-  }
+  // if (newState->isIsolated()) {
+  //   ExecutionState *copyState = newState->copy();
+  //   addStateToPob(copyState);
+  // } else {
+  //   addStateToPob(newState);
+  // }
 
   /*for (auto pob : pobs) {
     if (newState->pc->parent == pob->location && checkStack(newState, pob)) {
@@ -233,47 +222,6 @@ ExecutionState *ObjectManager::branchState(ExecutionState *state) {
 
   return newState;
 } 
-
-void ObjectManager::addStateToPob(ExecutionState *state) {
-  for (auto pob : pobs) {
-    if (state->pc->parent == pob->location && checkStack(state, pob)) {
-      Propagation prop(state, pob);
-      llvm::errs() << "add prop: state: " << prop.state->id << " pob: " << prop.pob->id << "\n";
-      addedPropagations.push_back(prop);
-    }
-  }
-
-  // if (_action->getKind() == BidirectionalAction::Kind::Forward) {
-  //   for (auto pob : pobs) {
-  //     if (state->pc->parent == pob->location && checkStack(state, pob)) {
-  //       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
-  //              "Paths are not compatible.");
-  //       Propagation prop(state, pob);
-  //       //llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
-  //       addedPropagations.push_back(prop);
-
-  //      if (!state->isIsolated()) {
-  //          ++state->backwardStepsLeftCounter;
-  //       }
-  //     }
-  //   }
-  // } else if (_action->getKind() == BidirectionalAction::Kind::Branch) {
-  //   ExecutionState *copyStata = state->copy();
-  //   for (auto pob : pobs) {
-  //     if (copyStata->pc->parent == pob->location && checkStack(copyStata, pob)) {
-  //       assert(copyStata->path.getFinalBlock() == pob->path.getInitialBlock() &&
-  //              "Paths are not compatible.");
-  //       Propagation prop(copyStata, pob);
-  //       //llvm::errs() << "add prop: state: " << prop.state << " pob: " << prop.pob << "\n";
-  //       addedPropagations.push_back(prop);
-  //     }
-  //   }
-  //   if (!state->isIsolated()) {
-  //      ++state->backwardStepsLeftCounter;
-  //   }
-  // }
- 
-}
 
 void ObjectManager::removeState(ExecutionState *state) {
   std::vector<ExecutionState *>::iterator itr = 
@@ -314,10 +262,87 @@ const std::set<ExecutionState *, ExecutionStateIDCompare> &ObjectManager::getIso
  return isolatedStates;
 }
 
-void ObjectManager::updateResult() {
-  setResult();
+void ObjectManager::addStateToPob(ExecutionState *state) {
+  for (auto pob : pobs) {
+    if (state->pc->parent == pob->location && checkStack(state, pob)) {
+      assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
+               "Paths are not compatible.");
+      Propagation prop(state, pob);
+      llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      addedPropagations.push_back(prop);
+      if (!state->isIsolated()) {
+        ++state->backwardStepsLeftCounter;
+      }
+    }
+  }
+}
 
+void ObjectManager::addPobToState(ProofObligation *pob) {
+  for (auto state : isolatedStates) {
+    if (state->pc->parent == pob->location && checkStack(state, pob)) {
+      assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
+               "Paths are not compatible.");
+      state = state->copy();
+      Propagation prop(state, pob);
+      llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      addedPropagations.push_back(prop);
+    }
+  }
+}
+
+void ObjectManager::createPropagations() {
+
+  switch (_action->getKind()) {
+  case BidirectionalAction::Kind::Forward: {
+    // ref<ForwardResult> res = cast<ForwardResult>(result);
+    ref<ForwardAction> act = cast<ForwardAction>(_action);
+    //ExecutionState *current = cast<ForwardAction>(_action)->state;
+    addStateToPob(act->state);
+
+    for (auto state : addedStates) {
+      addStateToPob(state);
+    }
+    for (auto pob : addedPobs) {
+      addPobToState(pob);
+    }
+    break;
+  }
+  case BidirectionalAction::Kind::Branch: {
+
+    // ref<BranchAction> act = cast<BranchAction>(_action);
+    // ExecutionState *currentState = act->state->copy();
+    // addStateToPob(currentState);
+
+    // for (auto state : isolatedStates) {
+    //   //ExecutionState *copyState = state->copy();
+    //   addStateToPob(copyState);
+    // }
+
+    if (!addedStates.empty()) {
+      for (auto state : isolatedStates) {
+        state = state->copy();
+        addStateToPob(state);
+      }
+    }
+
+    break;
+  }
+  case BidirectionalAction::Kind::Backward: {
+    for (auto pob : addedPobs) {
+      addPobToState(pob);
+    }
+  }
+  
+  default:
+    break;
+  }
+
+}
+
+void ObjectManager::updateResult() {
   //props here
+  createPropagations();
+  setResult();
 
   //update subscribers
   for (auto s : subscribers) {

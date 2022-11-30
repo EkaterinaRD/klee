@@ -61,8 +61,10 @@ public:
   void setTargetedConflict(ref<TargetedConflict> tc);
 
   void addStateToPob(ExecutionState *state);
+  void addPobToState(ProofObligation *pob);
   // void addPobToState(ProofObligation *pob);
   //
+  void createPropagations();
   
   ExecutionState *createState(llvm::Function *f, KModule *kmodule);
   void addState(ExecutionState *state);
