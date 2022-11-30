@@ -90,7 +90,8 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
-  llvm::errs() << "add pob: id: " << newPob->id << "(" << newPob << ")\n";
+  //llvm::errs() << "add pob: id: " << newPob->id << "(" << newPob << ")\n";
+  
   // if (_action->getKind() == BidirectionalAction::Kind::Forward) {
   //   for (auto state : states) {
   //     if (newPob->location == state->pc->parent && checkStack(state, newPob)) {
@@ -110,7 +111,8 @@ void ObjectManager::addPob(ProofObligation *newPob) {
 
 void ObjectManager::removePob(ProofObligation *pob) {
   removedPobs.push_back(pob);
-  llvm::errs() << "remove pob: id: " << pob ->id << "(" << pob << ")\n";
+  //llvm::errs() << "remove pob: id: " << pob ->id << "(" << pob << ")\n";
+  
   for (auto prop : propagations) {
     if (prop.pob == pob) {
       removedProgations.push_back(prop);
@@ -138,7 +140,7 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
   for (auto target : targets) {
     state->targets.insert(target);
   }
-  llvm::errs() << "isolate state: id: " << state->id << "(" << state << ")\n";
+  //llvm::errs() << "isolate state: id: " << state->id << "(" << state << ")\n";
 
   // ExecutionState *copyState = state->copy();
   // llvm::errs() <<"copy isolate state("<< state->id <<"): id: "<< copyState->id <<"("<< copyState <<")\n";
@@ -161,11 +163,11 @@ ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) 
 void ObjectManager::addState(ExecutionState *state) {
 
   addedStates.push_back(state);
-  if (state->isIsolated()) {
-    llvm::errs() << "add isolsted state: id: " << state->id << "("<< state <<")\n";
-  } else {
-    llvm::errs() << "add state: id: " << state->id << "("<< state <<")\n";
-  }
+  // if (state->isIsolated()) {
+  //   llvm::errs() << "add isolsted state: id: " << state->id << "("<< state <<")\n";
+  // } else {
+  //   llvm::errs() << "add state: id: " << state->id << "("<< state <<")\n";
+  // }
 
   /*if (state->isIsolated()) {
     //Target target = Target(state->pc->parent);
@@ -196,11 +198,11 @@ ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
  
   addedStates.push_back(newState);
-  if (newState->isIsolated()) {
-    llvm::errs() << "add isolate state: id: " << newState->id << "(" << newState << ")\n";
-  } else {
-    llvm::errs() << "add state: id: " << newState->id << "(" << newState << ")\n";
-  }
+  // if (newState->isIsolated()) {
+  //   llvm::errs() << "add isolate state: id: " << newState->id << "(" << newState << ")\n";
+  // } else {
+  //   llvm::errs() << "add state: id: " << newState->id << "(" << newState << ")\n";
+  // }
 
 
   // if (newState->isIsolated()) {
@@ -268,7 +270,8 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
-      llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      
       addedPropagations.push_back(prop);
       if (!state->isIsolated()) {
         ++state->backwardStepsLeftCounter;
@@ -284,7 +287,8 @@ void ObjectManager::addPobToState(ProofObligation *pob) {
                "Paths are not compatible.");
       state = state->copy();
       Propagation prop(state, pob);
-      llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      
       addedPropagations.push_back(prop);
     }
   }
