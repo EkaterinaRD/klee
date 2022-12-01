@@ -90,9 +90,10 @@ struct BranchAction : public ForwardAction {
 struct ReachedStatesAction : public BidirectionalAction {
   friend class ref<ReachedStatesAction>;
 
-  std::map<Target, std::unordered_set<ExecutionState *>> reached;
+  //std::map<Target, std::unordered_set<ExecutionState *>> reached;
+  std::vector<ExecutionState *> reached;
 
-  ReachedStatesAction(std::map<Target, std::unordered_set<ExecutionState *>> _reached) 
+  ReachedStatesAction(std::vector<ExecutionState *> _reached) 
     : reached(_reached) {}
 
   Kind getKind() const { return Kind::ReachedStates; }

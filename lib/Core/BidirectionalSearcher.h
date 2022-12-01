@@ -48,7 +48,8 @@ private:
   ExecutionState *initialState;
   std::vector<ExecutionState *> pausedStates;
   void pauseState(ExecutionState *state, BidirectionalSearcher::StepKind stepKind);
-  std::map<Target, std::unordered_set<ExecutionState *>> reached;
+  //std::map<Target, std::unordered_set<ExecutionState *>> _reached;
+  std::vector<ExecutionState *> reached;
   bool reachedStatesFlag;
 
   GuidedSearcher *forward;

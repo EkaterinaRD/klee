@@ -133,7 +133,7 @@ ExecutionState::ExecutionState(KFunction *kf, KBlock *kb) :
 }
 
 ExecutionState::~ExecutionState() {
-  //llvm::errs() << "delete state: id: " << this->id <<"("<< this <<")\n"; 
+  llvm::errs() << "delete state: id: " << this->id <<"("<< this <<")\n"; 
 
   for (const auto &cur_mergehandler: openMergeStack){
     cur_mergehandler->removeOpenState(this);

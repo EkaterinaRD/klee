@@ -31,13 +31,17 @@ void ObjectManager::unsubscribe(Subscriber *s) {
 
 void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
   initialState = state->copy();
+  llvm::errs() << "add initial state: id: " << initialState->id << "("<< initialState << ")\n";
   emptyState = state->copy();
   emptyState->stack.clear();
   emptyState->isolated = true;
+  llvm::errs() << "add empty state: id: " << emptyState->id << "("<< emptyState << ")\n";
 }
 
 void ObjectManager::deleteInitialAndEmptySt() {
+  llvm::errs() << "delete initial state: id: " << initialState->id << "("<< initialState << ")\n";
   delete initialState;
+  llvm::errs() << "delete empty state: id: " << emptyState->id << "("<< emptyState << ")\n";
   delete emptyState;
 }
 
@@ -95,7 +99,7 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
-  //llvm::errs() << "add pob: id: " << newPob->id << "(" << newPob << ")\n";
+  llvm::errs() << "add pob: id: " << newPob->id << "(" << newPob << ")\n";
   
   // if (_action->getKind() == BidirectionalAction::Kind::Forward) {
   //   for (auto state : states) {
@@ -116,11 +120,12 @@ void ObjectManager::addPob(ProofObligation *newPob) {
 
 void ObjectManager::removePob(ProofObligation *pob) {
   removedPobs.push_back(pob);
-  //llvm::errs() << "remove pob: id: " << pob ->id << "(" << pob << ")\n";
+  llvm::errs() << "remove pob: id: " << pob ->id << "(" << pob << ")\n";
   
   for (auto prop : propagations) {
     if (prop.pob == pob) {
       removedProgations.push_back(prop);
+      llvm::errs() << "remove prop: state: " << prop.state->id << " pob: "<< prop.pob->id << "\n";
     }
   }
   
@@ -145,7 +150,7 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
   for (auto target : targets) {
     state->targets.insert(target);
   }
-  //llvm::errs() << "isolate state: id: " << state->id << "(" << state << ")\n";
+  llvm::errs() << "add new isolate state: id: " << state->id << "(" << state << ")\n";
 
   // ExecutionState *copyState = state->copy();
   // llvm::errs() <<"copy isolate state("<< state->id <<"): id: "<< copyState->id <<"("<< copyState <<")\n";
@@ -160,14 +165,21 @@ void ObjectManager::setTargetedConflict(ref<TargetedConflict> tc) {
 }
 ///
 
+//удалить
 ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) {
   ExecutionState *state = new ExecutionState(kmodule->functionMap[f], kmodule->functionMap[f]->blockMap[&*f->begin()]);
+  //llvm::errs() << "add empty state: id: " << emptyState->id << "("<< emptyState << ")\n";
   return state;
 }
 
 void ObjectManager::addState(ExecutionState *state) {
 
   addedStates.push_back(state);
+  if (state->isIsolated()) {
+    llvm::errs() << "add isolate state: id: " << state->id << "("<< state << ")\n";
+  } else {
+    llvm::errs() << "add state: id: " << state->id << "("<< state << ")\n";
+  }
 }
 
 //rename forkState?
@@ -175,6 +187,11 @@ ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
  
   addedStates.push_back(newState);
+  if (newState->isIsolated()) {
+    llvm::errs() << "add isolate state: id: " << newState->id << "("<< newState << ")\n";
+  } else {
+    llvm::errs() << "add state: id: " << newState->id << "("<< newState << ")\n";
+  }
 
   return newState;
 } 
@@ -186,10 +203,12 @@ void ObjectManager::removeState(ExecutionState *state) {
 
   state->pc = state->prevPC;
   removedStates.push_back(state);
+  llvm::errs() << "remove state: id: " << state->id << "("<< state << ")\n";
   
   for (auto prop : propagations) {
     if (prop.state == state) {
       removedProgations.push_back(prop);
+      llvm::errs() << "remove prop: state: " << prop.state->id << " pob: "<< prop.pob->id << "\n";
     }
   }
 }
@@ -224,7 +243,7 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
-      //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
       
       addedPropagations.push_back(prop);
       if (!state->isIsolated()) {
@@ -243,7 +262,7 @@ void ObjectManager::addPobToState(ProofObligation *pob) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
-      //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
+      llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
       addedPropagations.push_back(prop);
     }
   }
@@ -252,18 +271,13 @@ void ObjectManager::addPobToState(ProofObligation *pob) {
 void ObjectManager::doSomething() {
   ref<ReachedStatesAction> act = cast<ReachedStatesAction>(_action);
   //по-хорошему сюда asser надобно
-  std::map<Target, std::unordered_set<ExecutionState *>> reached = act->reached;
+  //std::map<Target, std::unordered_set<ExecutionState *>> reached = act->reached;
+  std::vector<ExecutionState *> reachedStates = act->reached;
 
-  for (auto &targetStates : reached) {
-    for (auto state : targetStates.second) {
-      if (targetStates.first.atReturn() && state->stack.size() > 0) {
-        continue;
-      }
-      ExecutionState *copyState = state->copy();
-      targetedStates.insert(copyState);
-    }
+  for (auto state : reachedStates) {
+    addStateToPob(state);
   }
-  
+    
   //createPropagations();
 }
 
@@ -346,6 +360,7 @@ void ObjectManager::updateResult() {
   //update propagations
   for (auto prop : addedPropagations){
     propagations.push_back(prop);
+    // propagations.insert(prop);
   }
   for (auto prop : removedProgations) {
     std::vector<Propagation>::iterator it =
@@ -393,6 +408,7 @@ void ObjectManager::updateResult() {
   //pobs.erase(pob)
   for (auto pob : removedPobs) {
     pob->detachParent();
+    llvm::errs() << "delete pob: id: " << pob->id << "("<< pob << ")\n";
     delete pob;
   }
 

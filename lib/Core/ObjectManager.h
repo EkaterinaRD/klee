@@ -34,6 +34,7 @@ private:
   std::vector<ProofObligation *> removedPobs;
 
   std::vector<Propagation> propagations;
+  // std::set<Propagation> propagations;
   std::vector<Propagation> addedPropagations;
   std::vector<Propagation> removedProgations;
   //std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;

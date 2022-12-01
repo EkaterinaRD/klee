@@ -243,15 +243,15 @@ void BidirectionalSearcher::updateForward(
 void BidirectionalSearcher::updateBranch(
     ExecutionState *current, const std::vector<ExecutionState *> &addedStates,
     const std::vector<ExecutionState *> &removedStates) {
-  //std::map<Target, std::unordered_set<ExecutionState *>> reached;
+  std::map<Target, std::unordered_set<ExecutionState *>> _reached;
 
-  branch->update(current, addedStates, removedStates, reached);
+  branch->update(current, addedStates, removedStates, _reached);
   //if !reached.empty 
   //reachedStep = true & save reached
-  if (!reached.empty())
+  if (!_reached.empty())
     reachedStatesFlag = true;
 
-  for (auto &targetStates : reached) {
+  for (auto &targetStates : _reached) {
     for (auto state : targetStates.second) {
       if (targetStates.first.atReturn() && state->stack.size() > 0)
         continue;
@@ -262,6 +262,10 @@ void BidirectionalSearcher::updateBranch(
         llvm::errs() << "Constraints:\n" << state->constraints;
         llvm::errs() << "\n";
       }
+      ExecutionState *copyState = state->copy();
+      llvm::errs() <<"add reached state: id: "<< copyState->id <<"("<< copyState <<")\n";
+      llvm::errs() <<"       from state: id: "<< state->id << "\n";   
+      reached.push_back(copyState);
       backward->addState(targetStates.first, state);
     }
   }
