@@ -263,8 +263,8 @@ void BidirectionalSearcher::updateBranch(
         llvm::errs() << "\n";
       }
       ExecutionState *copyState = state->copy();
-      llvm::errs() <<"add reached state: id: "<< copyState->id <<"("<< copyState <<")\n";
-      llvm::errs() <<"       from state: id: "<< state->id << "\n";   
+      //llvm::errs() <<"add reached state: id: "<< copyState->id <<"("<< copyState <<")\n";
+      //llvm::errs() <<"       from state: id: "<< state->id << "\n";   
       reached.push_back(copyState);
       backward->addState(targetStates.first, state);
     }
