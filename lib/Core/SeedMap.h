@@ -13,7 +13,7 @@ class SeedMap : public Subscriber {
 private:
   std::map<ExecutionState *, std::vector<SeedInfo>> seedMap;
 public:
-  SeedMap(/* args */);
+  SeedMap();
 
   void update(ref<ActionResult> result) override;
   void closeProofObligation(ProofObligation *pob) override {}

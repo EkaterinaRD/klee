@@ -25,19 +25,30 @@ private:
 
   std::set<ExecutionState *, ExecutionStateIDCompare> states;
   std::set<ExecutionState *, ExecutionStateIDCompare> isolatedStates;
+  /// Used to track states that have been added during the current
+  /// instructions step.
+  /// \invariant \ref addedStates is a subset of \ref states.
+  /// \invariant \ref addedStates and \ref removedStates are disjoint.
   std::vector<ExecutionState *> addedStates;
+  /// Used to track states that have been removed during the current
+  /// instructions step.
+  /// \invariant \ref removedStates is a subset of \ref states.
+  /// \invariant \ref addedStates and \ref removedStates are disjoint.
   std::vector<ExecutionState *> removedStates;
   ref<TargetedConflict> targetedConflict;
 
   std::vector<ProofObligation *> pobs;
+  // ?
+  // std::set<ProofObligations *> pobs
   std::vector<ProofObligation *> addedPobs;
   std::vector<ProofObligation *> removedPobs;
 
   std::vector<Propagation> propagations;
+  // ?
   // std::set<Propagation> propagations;
   std::vector<Propagation> addedPropagations;
   std::vector<Propagation> removedProgations;
-  //std::map<Target, std::unordered_set<ExecutionState *>> mapTargetToStates;
+
   std::set<ExecutionState *, ExecutionStateIDCompare> targetedStates;
 public:
   ObjectManager(/* args */);
@@ -52,9 +63,7 @@ public:
   ExecutionState *getEmptyState();
 
   void setAction(ref<BidirectionalAction> action);
-  void setResult();
 
-  //временно
   void addPob(ProofObligation *newPob);
   void removePob(ProofObligation *pob);
   std::vector<ProofObligation *> getPobs();
@@ -62,14 +71,8 @@ public:
 
   void setTargetedConflict(ref<TargetedConflict> tc);
 
-  void addStateToPob(ExecutionState *state);
-  void addPobToState(ProofObligation *pob);
-  // void addPobToState(ProofObligation *pob);
-  //
-  void createPropagations();
-  void doSomething();
+  void setReachedStates();
   
-  ExecutionState *createState(llvm::Function *f, KModule *kmodule);
   void addState(ExecutionState *state);
   ExecutionState *branchState(ExecutionState *state);
   void removeState(ExecutionState *state);
@@ -83,12 +86,19 @@ public:
 
   void updateResult();
   std::vector<ExecutionState *> closeProofObligation(bool replayStateFromProofObligation);
-  ExecutionState *replayStateFromPob(ProofObligation *pob);
-
-  //void setSearcher();
-  bool checkStack(ExecutionState * state, ProofObligation *pob);
 
   ~ObjectManager();
+
+private:
+  void setResult();
+
+  void addStateToPob(ExecutionState *state);
+  void addPobToState(ProofObligation *pob);
+  void createPropagations();
+
+  bool checkStack(ExecutionState * state, ProofObligation *pob);
+
+  ExecutionState *replayStateFromPob(ProofObligation *pob);
 };
 } // namespace klee
 

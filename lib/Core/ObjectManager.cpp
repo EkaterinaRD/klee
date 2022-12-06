@@ -31,17 +31,14 @@ void ObjectManager::unsubscribe(Subscriber *s) {
 
 void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
   initialState = state->copy();
-  //llvm::errs() << "add initial state: id: " << initialState->id << "("<< initialState << ")\n";
+
   emptyState = state->copy();
   emptyState->stack.clear();
   emptyState->isolated = true;
-  //llvm::errs() << "add empty state: id: " << emptyState->id << "("<< emptyState << ")\n";
 }
 
 void ObjectManager::deleteInitialAndEmptySt() {
-  //llvm::errs() << "delete initial state: id: " << initialState->id << "("<< initialState << ")\n";
   delete initialState;
-  //llvm::errs() << "delete empty state: id: " << emptyState->id << "("<< emptyState << ")\n";
   delete emptyState;
 }
 
@@ -57,8 +54,6 @@ void ObjectManager::setAction(ref<BidirectionalAction> action) {
   
   _action = action;
 }
-
-//add TargetConflictResult and ...Action
 
 void ObjectManager::setResult() {
   switch (_action->getKind()) {
@@ -99,33 +94,14 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
-  //llvm::errs() << "add pob: id: " << newPob->id << "(" << newPob << ")\n";
-  
-  // if (_action->getKind() == BidirectionalAction::Kind::Forward) {
-  //   for (auto state : states) {
-  //     if (newPob->location == state->pc->parent && checkStack(state, newPob)) {
-  //       Propagation prop(state, newPob);
-  //       addedPropagations.push_back(prop);
-  //     }
-  //   }
-  // } else if (_action->getKind() == BidirectionalAction::Kind::Branch) {
-  //   for (auto istate : isolatedStates) {
-  //     if (newPob->location == istate->pc->parent && checkStack(istate, newPob)) {
-  //       Propagation prop(istate, newPob);
-  //       addedPropagations.push_back(prop);
-  //     }
-  //   }
-  // }
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {
   removedPobs.push_back(pob);
-  //llvm::errs() << "remove pob: id: " << pob ->id << "(" << pob << ")\n";
   
   for (auto prop : propagations) {
     if (prop.pob == pob) {
       removedProgations.push_back(prop);
-      //llvm::errs() << "remove prop: state: " << prop.state->id << " pob: "<< prop.pob->id << "\n";
     }
   }
   
@@ -135,7 +111,8 @@ std::vector<ProofObligation *> ObjectManager::getPobs() {
   return addedPobs;
 }
 
-//переименовать в initiBranchState
+//?
+//rename to initiBranchState
 ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
   KInstruction *loc = action->location;
   std::set<Target> &targets = action->targets;
@@ -150,11 +127,6 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
   for (auto target : targets) {
     state->targets.insert(target);
   }
-  //llvm::errs() << "add new isolate state: id: " << state->id << "(" << state << ")\n";
-
-  // ExecutionState *copyState = state->copy();
-  // llvm::errs() <<"copy isolate state("<< state->id <<"): id: "<< copyState->id <<"("<< copyState <<")\n";
-  // addStateToPob(copyState);
 
   result = new InitializeResult(loc, *state);
   return state;
@@ -163,35 +135,17 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
 void ObjectManager::setTargetedConflict(ref<TargetedConflict> tc) {
   targetedConflict = tc;
 }
-///
-
-//удалить
-ExecutionState *ObjectManager::createState(llvm::Function *f, KModule *kmodule) {
-  ExecutionState *state = new ExecutionState(kmodule->functionMap[f], kmodule->functionMap[f]->blockMap[&*f->begin()]);
-  //llvm::errs() << "add empty state: id: " << emptyState->id << "("<< emptyState << ")\n";
-  return state;
-}
 
 void ObjectManager::addState(ExecutionState *state) {
-
   addedStates.push_back(state);
-  // if (state->isIsolated()) {
-  //   llvm::errs() << "add isolate state: id: " << state->id << "("<< state << ")\n";
-  // } else {
-  //   llvm::errs() << "add state: id: " << state->id << "("<< state << ")\n";
-  // }
 }
 
-//rename forkState?
+//?
+//rename to forkState?
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
  
   addedStates.push_back(newState);
-  // if (newState->isIsolated()) {
-  //   llvm::errs() << "add isolate state: id: " << newState->id << "("<< newState << ")\n";
-  // } else {
-  //   llvm::errs() << "add state: id: " << newState->id << "("<< newState << ")\n";
-  // }
 
   return newState;
 } 
@@ -203,12 +157,10 @@ void ObjectManager::removeState(ExecutionState *state) {
 
   state->pc = state->prevPC;
   removedStates.push_back(state);
-  //llvm::errs() << "remove state: id: " << state->id << "("<< state << ")\n";
   
   for (auto prop : propagations) {
     if (prop.state == state) {
       removedProgations.push_back(prop);
-      //llvm::errs() << "remove prop: state: " << prop.state->id << " pob: "<< prop.pob->id << "\n";
     }
   }
 }
@@ -243,7 +195,6 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
-      //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
       
       addedPropagations.push_back(prop);
       if (!state->isIsolated()) {
@@ -254,78 +205,45 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
 }
 
 void ObjectManager::addPobToState(ProofObligation *pob) {
-  //на самом то деле надо добовлять побы к пропан из состояний, которые достгли таргет
-  //и потому думаю надо создать отдельный список таких состояний
-  //однако как это извлечь из серчера, который и вычисляет эти ричд состояния
   for (auto state : targetedStates) {
     if (state->pc->parent == pob->location && checkStack(state, pob)) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
-      //llvm::errs() << "add prop: state: " << state->id << " pob: " << pob->id << "\n";
       addedPropagations.push_back(prop);
     }
   }
 }
 
-void ObjectManager::doSomething() {
+void ObjectManager::setReachedStates() {
   ref<ReachedStatesAction> act = cast<ReachedStatesAction>(_action);
-  //по-хорошему сюда asser надобно
-  //std::map<Target, std::unordered_set<ExecutionState *>> reached = act->reached;
+  //?
+  //assert?
   std::vector<ExecutionState *> reachedStates = act->reached;
 
   for (auto state : reachedStates) {
     addStateToPob(state);
   }
-    
-  //createPropagations();
 }
 
 void ObjectManager::createPropagations() {
 
   switch (_action->getKind()) {
   case BidirectionalAction::Kind::Forward: {
-    // ref<ForwardResult> res = cast<ForwardResult>(result);
     ref<ForwardAction> act = cast<ForwardAction>(_action);
-    //ExecutionState *current = cast<ForwardAction>(_action)->state;
     addStateToPob(act->state);
 
     for (auto state : addedStates) {
       addStateToPob(state);
     }
-    //возможно лишнее, тк при форвард побы появляются после апдейт
+    //?
+    //excess?
     for (auto pob : addedPobs) {
       addPobToState(pob);
     }
     break;
   }
-  // case BidirectionalAction::Kind::Branch: {
-  //   if (!addedStates.empty()) {
-  //     for (auto state : isolatedStates) {
-  //       state = state->copy();
-  //       addStateToPob(state);
-  //     }
-  //   }
-
-  //   break;
-  // }
   case BidirectionalAction::Kind::ReachedStates: {
-    // ref<ReachedStatesAction> act = cast<ReachedStatesAction>(_action);
-    // std::map<Target, std::unordered_set<ExecutionState *>> reached = act->reached;
-
-    // for (auto &targetStates : reached) {
-    //   for (auto state : targetStates.second) {
-    //     if (targetStates.first.atReturn() && state->stack.size() > 0) {
-    //       continue;
-    //     }
-    //     // ExecutionState *copyState = state->copy();
-    //     // addStateToPob(copyState);
-        
-    //     //add to targetedStates;
-    //     addStateToPob(state->copy());
-    //   }
-    // }
-
     for (auto state : targetedStates) {
       addStateToPob(state);
     }
@@ -345,7 +263,7 @@ void ObjectManager::createPropagations() {
 }
 
 void ObjectManager::updateResult() {
-  //props here
+  //create propagations
   createPropagations();
   setResult();
 
@@ -360,7 +278,6 @@ void ObjectManager::updateResult() {
   //update propagations
   for (auto prop : addedPropagations){
     propagations.push_back(prop);
-    // propagations.insert(prop);
   }
   for (auto prop : removedProgations) {
     std::vector<Propagation>::iterator it =
@@ -405,10 +322,8 @@ void ObjectManager::updateResult() {
   for (auto pob : addedPobs) {
     pobs.push_back(pob);
   }
-  //pobs.erase(pob)
   for (auto pob : removedPobs) {
     pob->detachParent();
-    //llvm::errs() << "delete pob: id: " << pob->id << "("<< pob << ")\n";
     delete pob;
   }
 

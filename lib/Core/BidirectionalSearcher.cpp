@@ -60,8 +60,7 @@ llvm::cl::opt<bool> PruneStates(
 namespace klee {
 
 BidirectionalSearcher::StepKind BidirectionalSearcher::selectStep() {
-  //if reached not empty
-  //return reachedStep
+
   if (reachedStatesFlag) {
     return StepKind::ReachedStates;
   }
@@ -120,8 +119,7 @@ void BidirectionalSearcher::pauseState(ExecutionState *state, BidirectionalSearc
 
 ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
   ref<BidirectionalAction> action;
-  //if ReachedStep return ReachedStatesAction(reachedStates)
-  //and clear reached!
+
   while (action.isNull()) {
     switch (selectStep()) {
 
@@ -210,32 +208,27 @@ void BidirectionalSearcher::updateForward(
         !isa<KReturnBlock>(state->prevPC->parent)) {
       Target target = Target(state->pc->parent);
       //updateProp(addedProp, removedProp)
-      backward->addState(target, state);
+      //backward->addState(target, state);
     }
     //else delet from prop
   }
 
-  //llvm::errs() << "Hello\n";
   if (targetedConflict) {
-    //llvm::errs() << "Hello_1\n";
     if (!rootBlocks.count(targetedConflict->target->basicBlock) &&
         !reachableBlocks.count(targetedConflict->target->basicBlock)) {
       rootBlocks.insert(targetedConflict->target->basicBlock);
       initializer->addConflictInit(targetedConflict->conflict,
                                    targetedConflict->target);
-      //llvm::errs() << "Hello_2\n";
-      //надо как то вернуть менеджеру чтобы он построил проп и отдал бэкварду
       ProofObligation *pob = new ProofObligation(targetedConflict->target);
-      //ex->addPob(pob);
       objMng->addPob(pob);
-      //llvm::errs() << "add pob: id: " << pob->id << "("<< pob <<")\n";
-      //llvm::errs() << "Hello\n";
       if (DebugBidirectionalSearcher) {
         llvm::errs() << "Add new proof obligation.\n";
         llvm::errs() << "At: " << pob->location->getIRLocation() << "\n";
         llvm::errs() << "\n";
       }
       addPob(pob);
+      // pobs.push_back(pob);
+      // initializer->addPob(pob);
     }
   }
 }
@@ -246,8 +239,7 @@ void BidirectionalSearcher::updateBranch(
   std::map<Target, std::unordered_set<ExecutionState *>> _reached;
 
   branch->update(current, addedStates, removedStates, _reached);
-  //if !reached.empty 
-  //reachedStep = true & save reached
+
   if (!_reached.empty())
     reachedStatesFlag = true;
 
@@ -263,10 +255,7 @@ void BidirectionalSearcher::updateBranch(
         llvm::errs() << "\n";
       }
       ExecutionState *copyState = state->copy();
-      //llvm::errs() <<"add reached state: id: "<< copyState->id <<"("<< copyState <<")\n";
-      //llvm::errs() <<"       from state: id: "<< state->id << "\n";   
       reached.push_back(copyState);
-      backward->addState(targetStates.first, state);
     }
   }
 }
@@ -275,6 +264,8 @@ void BidirectionalSearcher::updateBackward(
     std::vector<ProofObligation *> newPobs, ProofObligation *oldPob) {
   for (auto pob : newPobs) {
     addPob(pob);
+    // pobs.push_back(pob);
+    // initializer->addPob(pob);
   }
 }
 
@@ -283,10 +274,6 @@ void BidirectionalSearcher::updateInitialize(KInstruction *location,
   branch->update(nullptr, {&state}, {});
 }
 
-//updateProps(added, removed)
-/*
-backward->updateProp()
-*/
 void BidirectionalSearcher::updatePropagations(std::vector<Propagation> &addedPropagations,
                                                std::vector<Propagation> &removedPropagations)  {
   backward->updatePropagations(addedPropagations, removedPropagations);
@@ -308,10 +295,7 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
       }
       updateForward(fr->current, fr->addedStates, newRemovedStates, fr->targetedConflict);
     }
-    //updateProps()
     updatePropagations(fr->addedPropagations, fr->removedPropagations);
-    //updateForward(fr->current, fr->addedStates, fr->removedStates,
-    //              fr->targetedConflict);
     break;
   }
   case ActionResult::Kind::Branch: {
@@ -328,15 +312,10 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
       }
       updateBranch(brr->current, brr->addedStates, newRemovedStates);
     }
-    //updateProps()
     updatePropagations(brr->addedPropagations, brr->removedPropagations);
-    //updateBranch(brr->current, brr->addedStates, brr->removedStates);
     break;
   }
   case ActionResult::Kind::ReachedStates: {
-    //backward->updatePropagation
-    //reached.clear();
-    //reachedStatesFlag = false;
 
     ref<ReachedStatesResult> rsr = cast<ReachedStatesResult>(r);
     backward->updatePropagations(rsr->addedPropagations, rsr->removedPropagations);
@@ -352,7 +331,6 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
       if (bckr->newPobs.empty())
         ++bckr->state->failedBackwardStepsCounter;
     }
-    //updateProps()
     updatePropagations(bckr->addedPropagations, bckr->removedPropagations);
     break;
   }
@@ -369,7 +347,6 @@ void BidirectionalSearcher::update(ref<ActionResult> r) {
 BidirectionalSearcher::BidirectionalSearcher(const SearcherConfig &cfg)
     : ticker({80, 10, 5, 5}) {
   ex = cfg.executor;
-  //initialState = cfg.initialState;
   objMng = cfg.objectManager;
 
   initialState = objMng->getInitialState();
@@ -414,9 +391,9 @@ bool isStuck(ExecutionState &state) {
          state.multilevel.count(state.getPCBlock()) > MaxCycles;
 }
 
+//delete?
 void BidirectionalSearcher::addPob(ProofObligation *pob) {
   pobs.push_back(pob);
-  backward->update(pob);
   initializer->addPob(pob);
 }
 
@@ -512,7 +489,6 @@ void GuidedOnlySearcher::update(ref<ActionResult> r) {
       }
       searcher->update(fr->current, fr->addedStates, newRemovedStates);
     }
-    //searcher->update(fr->current, fr->addedStates, fr->removedStates);
     break;
   }
   case ActionResult::Kind::Terminate: {

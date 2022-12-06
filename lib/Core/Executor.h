@@ -179,10 +179,6 @@ private:
 
   std::unique_ptr<MemoryManager> memory;
 
-  //std::set<ExecutionState *, ExecutionStateIDCompare> states;
-  //std::set<ExecutionState *, ExecutionStateIDCompare> isolatedStates;
-  std::set<ProofObligation *, ProofObligationIDCompare> pobs;
-
   std::unique_ptr<StatsTracker> statsTracker;
 
   TreeStreamWriter *pathWriter, *symPathWriter;
@@ -193,17 +189,6 @@ private:
   std::unique_ptr<PForest> processForest;
   ExprHashMap<std::pair<ref<Expr>, unsigned>> gepExprBases;
   ExprHashMap<ref<Expr>> gepExprOffsets;
-
-  /// Used to track states that have been added during the current
-  /// instructions step.
-  /// \invariant \ref addedStates is a subset of \ref states.
-  /// \invariant \ref addedStates and \ref removedStates are disjoint.
-  //std::vector<ExecutionState *> addedStates;
-  /// Used to track states that have been removed during the current
-  /// instructions step.
-  /// \invariant \ref removedStates is a subset of \ref states.
-  /// \invariant \ref addedStates and \ref removedStates are disjoint.
-  //std::vector<ExecutionState *> removedStates;
 
   /// Used for validity-core initialization in the same manner
   /// as addedStates and removedStates are used.
@@ -332,8 +317,6 @@ private:
   void initializeGlobalObjects(ExecutionState &state);
 
   void stepInstruction(ExecutionState &state);
-
-  void updateResult(ref<ActionResult>);
 
   void transferToBasicBlock(llvm::BasicBlock *dst, llvm::BasicBlock *src,
                             ExecutionState &state);
@@ -747,18 +730,11 @@ public:
   void addErroneousResult(ExecutionState &state);
   void addHistoryResult(ExecutionState &state);
 
-  void pauseRedundantState(ExecutionState &state);
-  void unpauseState(ExecutionState &state);
 
   void initBranch(ref<InitializeAction> action);
   void goForward(ref<BidirectionalAction> action);
   void goBackward(ref<BackwardAction> action);
   void addPob(ProofObligation *pob);
-  /*ref<InitializeResult> initBranch(ref<InitializeAction> action);
-  ref<ActionResult> goForward(ref<BidirectionalAction> action);
-  ref<BackwardResult> goBackward(ref<BackwardAction> action);*/
-
-  //ref<ActionResult> executeAction(ref<BidirectionalAction> action);
   void executeAction(ref<BidirectionalAction> action);
 
   KBlock *getStartLocation(const ExecutionState &state);

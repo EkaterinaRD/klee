@@ -2,7 +2,7 @@
 
 using namespace klee;
 
-SeedMap::SeedMap(/* args */) {}
+SeedMap::SeedMap() {}
 
 void SeedMap::update(ref<ActionResult> result) {
   if (isa<ForwardResult>(result)) {

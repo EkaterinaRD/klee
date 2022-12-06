@@ -995,9 +995,6 @@ void Executor::branch(ExecutionState &state,
     for (unsigned i=1; i<N; ++i) {
       ExecutionState *es = result[theRNG.getInt32() % i];
       ExecutionState *ns = objectManager.branchState(es);
-      //ExecutionState *ns = es->branch();
-      //addedStates.push_back(ns);
-      //objectManager.addState(ns);
       result.push_back(ns);
       processForest->attach(es->ptreeNode, ns, es);
     }
@@ -1213,9 +1210,6 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
     ++stats::forks;
 
     falseState = objectManager.branchState(trueState);
-    //falseState = trueState->branch();
-    //addedStates.push_back(falseState);
-    //objectManager.addState(falseState);
 
 
     if (it != seedMap->end()) {
@@ -3495,46 +3489,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   }
 }
 
-/*void Executor::updateResult(ref<ActionResult> r) {
-  if (searcher) {
-    searcher->update(r);
-  }
-  seedMap->update(r);
-  processForest->update(r);
-
-  objectManager.updateResult();
-  if (isa<ForwardResult>(r)) {
-    auto fr = cast<ForwardResult>(r);
-    states.insert(fr->addedStates.begin(), fr->addedStates.end());
-    for (const auto state : fr->removedStates) {
-      std::set<ExecutionState *>::iterator it2 = states.find(state);
-      assert(it2 != states.end());
-      states.erase(it2);
-      ///
-      std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it3 = 
-        seedMap->find(state);
-      if (it3 != seedMap->end())
-        seedMap->erase(it3);
-      processForest->remove(state->ptreeNode);
-      ///
-      delete state;
-    }
-  } else if (isa<BranchResult>(r)) {
-    auto br = cast<BranchResult>(r);
-    isolatedStates.insert(br->addedStates.begin(), br->addedStates.end());
-    for (const auto state : br->removedStates) {
-      std::set<ExecutionState *>::iterator it2 = isolatedStates.find(state);
-      assert(it2 != isolatedStates.end());
-      isolatedStates.erase(it2);
-      //processForest->remove(state->ptreeNode);
-      delete state;
-    }
-  }
-
-  addedStates.clear();
-  removedStates.clear();
-}*/
-
 template <typename SqType, typename TypeIt>
 void Executor::computeOffsetsSeqTy(KGEPInstruction *kgepi,
                                    ref<ConstantExpr> &constantOffset,
@@ -3642,6 +3596,7 @@ bool Executor::checkMemoryUsage() {
   klee_warning("killing %lu states (over memory cap: %luMB)", toKill, totalUsage);
 
   // randomly select states for early termination
+  //?
   //std::vector<ExecutionState *> arr(states.begin(), states.end()); // FIXME: expensive
   std::vector<ExecutionState *> arr;
   objectManager.copyStatesTo(arr);
@@ -3670,7 +3625,6 @@ void Executor::doDumpStates() {
     for (const auto &state : objectManager.getStates()) {
       terminateStateEarly(*state, "Execution halting.");
     }
-    //objectManager.setResult(new ForwardAction(nullptr));
     objectManager.setAction(new ForwardAction(nullptr));
     objectManager.updateResult();
   }
@@ -3678,27 +3632,9 @@ void Executor::doDumpStates() {
     for (const auto state : objectManager.getIsolatedStates()) {
       terminateStateEarly(*state, "Execution halting.");
     }
-    //objectManager.setResult(new BranchAction(nullptr));
     objectManager.setAction(new BranchAction(nullptr));
     objectManager.updateResult();
   }
-
-  /*if (!DumpStatesOnHalt || (states.empty() && isolatedStates.empty()))
-    return;
-
-  klee_message("halting execution, dumping remaining states");
-  if (!states.empty()) {
-    for (const auto &state : states) {
-      terminateStateEarly(*state, "Execution halting.");
-    }
-    updateResult(new ForwardResult(nullptr, addedStates, removedStates));
-  }
-  if (!isolatedStates.empty()) {
-    for (const auto state : isolatedStates) {
-      terminateStateEarly(*state, "Execution halting.");
-    }
-    updateResult(new BranchResult(nullptr, addedStates, removedStates));
-  }*/
 }
 
 void Executor::seed(ExecutionState &initialState) {
@@ -3731,10 +3667,8 @@ void Executor::seed(ExecutionState &initialState) {
     timers.invoke();
     if (::dumpStates) dumpStates();
     if (::dumpPForest) dumpPForest();
-    //ExecutionState *nState = &state;
-    //objectManager.setResult(new ForwardAction(nState));
+
     objectManager.updateResult();
-    //updateResult(new ForwardResult(&state, addedStates, removedStates));
 
     if ((stats::instructions % 1000) == 0) {
       int numSeeds = 0, numStates = 0;
@@ -3761,7 +3695,6 @@ void Executor::seed(ExecutionState &initialState) {
   }
 
   klee_message("seeding done (%d states remain)", (int) objectManager.sizeStates());
-  //klee_message("seeding done (%d states remain)", (int) states.size());
 
   if (OnlySeed) {
     doDumpStates();
@@ -3781,22 +3714,14 @@ void Executor::executeStep(ExecutionState &state) {
   if (::dumpStates) dumpStates();
   if (::dumpPForest) dumpPForest();
 
-  //ExecutionState *nState = &state;
-  //objectManager.setResult(new ForwardAction(nState));
   objectManager.updateResult();
-  //updateResult(new ForwardResult(&state, addedStates, removedStates));
 
   if (!checkMemoryUsage()) {
     // update searchers when states were terminated early due to memory pressure
     objectManager.setAction(new ForwardAction(nullptr));
     objectManager.updateResult();
-    //updateResult(new ForwardResult(nullptr, addedStates, removedStates));
   }
 }
-
-/*void Executor::silentRemove(ExecutionState &state) {
-  removedStates.push_back(&state);
-}*/
 
 std::string Executor::getAddressInfo(ExecutionState &state,
                                      ref<Expr> address) const {
@@ -3860,44 +3785,6 @@ void Executor::terminateState(ExecutionState &state) {
   objectManager.removeState(&state);
   if (!state.isIsolated())
     interpreterHandler->incPathsExplored();
-  
-  /*if (objectManager.removeState(&state)) {
-    if (!state.isIsolated()){
-      interpreterHandler->incPathsExplored();
-    }
-  } else {
-    klee_warning("remove state twice");
-  }*/
-
-  /*ExecutionState *rState = &state;
-  objectManager.removeState(rState);
-
-  std::vector<ExecutionState *>::iterator itr =
-      std::find(removedStates.begin(), removedStates.end(), &state);
-
-  if (itr != removedStates.end()) {
-      klee_warning("remove state twice");
-      return;
-  }
-
-  if (!state.isIsolated())
-    interpreterHandler->incPathsExplored();
-
-  std::vector<ExecutionState *>::iterator ita =
-      std::find(addedStates.begin(), addedStates.end(), &state);
-  if (ita==addedStates.end()) {
-    state.pc = state.prevPC;
-    removedStates.push_back(&state);
-  } else {
-    // never reached searcher, just delete immediately
-    std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it3 =
-      seedMap->find(&state);
-    if (it3 != seedMap->end())
-      seedMap->erase(it3);
-    addedStates.erase(ita);
-    processForest->remove(state.ptreeNode);
-    delete &state;
-  }*/
 }
 
 void Executor::terminateStateEarly(ExecutionState &state,
@@ -4974,6 +4861,7 @@ void Executor::runFunctionAsMain(Function *f,
   bindModuleConstants();
   run(*state);
   processForest = nullptr;
+  //?
   //seedMap = nullptr;
 
   delete symbolics;
@@ -5401,7 +5289,7 @@ void Executor::executeAction(ref<BidirectionalAction> action) {
     break;
   }
   case BidirectionalAction::Kind::ReachedStates: {
-    objectManager.doSomething();
+    objectManager.setReachedStates();
     break;
   }
   case BidirectionalAction::Kind::Backward:
@@ -5413,8 +5301,6 @@ void Executor::executeAction(ref<BidirectionalAction> action) {
   case BidirectionalAction::Kind::Terminate:
   default: {
     haltExecution = true;
-    //objectManager.setResult(cast<TerminateAction>(action));
-    //return new TerminateResult();
     break;
   }
   }
@@ -5544,7 +5430,6 @@ void Executor::run(ExecutionState &state) {
 
   SearcherConfig cfg;
   cfg.executor = this;
-  //cfg.initialState = objectManager.getInitialState();
   cfg.objectManager = &objectManager;
 
   if (usingSeeds) {
@@ -5577,10 +5462,7 @@ void Executor::run(ExecutionState &state) {
       timers.invoke();
       if (::dumpStates) dumpStates();
       if (::dumpPForest) dumpPForest();
-      //objectManager.setResult(new ForwardAction(&state));
       objectManager.updateResult();
-      //ref<ForwardResult> res = new ForwardResult(&state, addedStates, removedStates);
-      //updateResult(res);
 
       if ((stats::instructions % 1000) == 0) {
         int numSeeds = 0, numStates = 0;
@@ -5607,7 +5489,6 @@ void Executor::run(ExecutionState &state) {
     }
 
     klee_message("seeding done (%d states remain)", (int) objectManager.sizeStates());
-    //klee_message("seeding done (%d states remain)", (int) states.size());
 
     if (OnlySeed) {
       doDumpStates();
@@ -5649,8 +5530,6 @@ void Executor::run(ExecutionState &state) {
     for (auto replayState : replayStates) {
       processForest->addRoot(replayState);
     }
-    // targetedConflict = ref<TargetedConflict>();
-    // objectManager.setTargetedConflict(targetedConflict);
   }
 
   doDumpStates();
@@ -5675,6 +5554,7 @@ void Executor::initBranch(ref<InitializeAction> action) {
   }
   processForest->addRoot(state);
   timers.invoke();
+  //?
   //delete initialState?
 }
 
@@ -5695,8 +5575,6 @@ void Executor::goForward(ref<BidirectionalAction> a) {
   if (::dumpStates) dumpStates();
   if (::dumpPForest) dumpPForest();
 
-  // targetedConflict = ref<TargetedConflict>();
-  // objectManager.setTargetedConflict(targetedConflict);
 }
 
 void Executor::goBackward(ref<BackwardAction> action) {
