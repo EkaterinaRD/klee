@@ -5626,9 +5626,12 @@ void Executor::goBackward(ref<BackwardAction> action) {
       pob->children.insert(newPob);
     }
   } else {
-    objectManager.removePob(newPob);
-    if (state->isIsolated() && conflictCore.size())
+    objectManager.removePob(newPob); //why?
+    if (state->isIsolated() && conflictCore.size()) {
       summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
+      objectManager.summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
+    }
+      
   }
 }
   int Executor::getBase(ref<Expr> expr,

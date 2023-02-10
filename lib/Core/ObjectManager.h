@@ -5,6 +5,8 @@
 #include "SearcherUtil.h"
 #include "ProofObligation.h"
 #include "Subscriber.h"
+// #include "Database.h"
+
 #include "llvm/IR/Function.h"
 
 #include <set>
@@ -12,9 +14,21 @@
 
 namespace klee {
 
+struct Lemma;
+
+// struct Lemma {
+//   Path path;
+//   ExprHashSet constraints;
+
+//   bool operator==(const Lemma &other) {
+//     return this->path == other.path && this->constraints == other.constraints;
+//   }
+//   Lemma(const Path &path) : path(path) {}
+// };
 
 class ObjectManager {
 private:
+
   std::vector<Subscriber *> subscribers;
   std::vector<Subscriber *> subscribersAfterAll;
 
@@ -50,6 +64,11 @@ private:
   std::vector<Propagation> removedProgations;
 
   std::set<ExecutionState *, ExecutionStateIDCompare> targetedStates;
+
+  std::map<KBlock *, std::set<Lemma *>> locationMap;
+  std::map<Path, std::set<Lemma *>> pathMap;
+  std::set<Lemma *> lemmas;
+
 public:
   ObjectManager(/* args */);
 
@@ -86,6 +105,10 @@ public:
 
   void updateResult();
   std::vector<ExecutionState *> closeProofObligation(bool replayStateFromProofObligation);
+
+  void summarize(const ProofObligation *pob,
+                 const Conflict &conflict,
+                 const ExprHashMap<ref<Expr>> &rebuildMap);
 
   ~ObjectManager();
 

@@ -395,7 +395,49 @@ bool ObjectManager::checkStack(ExecutionState *state, ProofObligation *pob) {
   return true;
 }
 
+void ObjectManager::summarize(const ProofObligation *pob,
+                 const Conflict &conflict,
+                 const ExprHashMap<ref<Expr>> &rebuildMap) {
+  
+  const Conflict::core_ty &core = conflict.core;
+  const Path &path = conflict.path;
+  // auto &locationLemmas = locationMap[pob->location];
+  // if (locationLemmas.empty()) {
+  //   ++stats::summarizedLocationCount;
+  // }
+  Lemma *newLemma = new Lemma(path);
+
+  for (auto &constraint : core) {
+    ref<Expr> condition = constraint.first;
+    if (rebuildMap.count(condition)) {
+      ref<Expr> lemmaExpr = Expr::createIsZero(rebuildMap.at(condition));
+      newLemma->constraints.insert(lemmaExpr);
+    }
+  }
+
+  bool exists = false;
+  for (auto lemma : pathMap[path]) {
+    if (*lemma == *newLemma) {
+      exists = true;
+      break;
+    }
+  }
+  if (!exists) {
+    pathMap[path].insert(newLemma);
+    locationMap[path.getFinalBlock()].insert(newLemma);
+    lemmas.insert(newLemma);
+    
+    // debug information
+    // ...
+  } else {
+    delete newLemma;
+  }
+}
+
 ObjectManager::~ObjectManager() {
   pobs.clear();
   propagations.clear();
+  for (auto lemma : lemmas) {
+    delete lemma;
+  }
 }
