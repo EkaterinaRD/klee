@@ -223,8 +223,6 @@ void ObjectManager::createPropagations() {
 
   switch (_action->getKind()) {
   case BidirectionalAction::Kind::Forward: {
-    ref<ForwardAction> act = cast<ForwardAction>(_action);
-    addStateToPob(act->state);
 
     for (auto state : addedStates) {
       addStateToPob(state);
