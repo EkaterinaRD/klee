@@ -3596,8 +3596,7 @@ bool Executor::checkMemoryUsage() {
   klee_warning("killing %lu states (over memory cap: %luMB)", toKill, totalUsage);
 
   // randomly select states for early termination
-  //?
-  //std::vector<ExecutionState *> arr(states.begin(), states.end()); // FIXME: expensive
+  // FIXME: expensive
   std::vector<ExecutionState *> arr;
   objectManager.copyStatesTo(arr);
   for (unsigned i = 0, N = arr.size(); N && i < toKill; ++i, --N) {
@@ -4861,8 +4860,6 @@ void Executor::runFunctionAsMain(Function *f,
   bindModuleConstants();
   run(*state);
   processForest = nullptr;
-  //?
-  //seedMap = nullptr;
 
   delete symbolics;
 
@@ -5554,8 +5551,6 @@ void Executor::initBranch(ref<InitializeAction> action) {
   }
   processForest->addRoot(state);
   timers.invoke();
-  //?
-  //delete initialState?
 }
 
 void Executor::goForward(ref<BidirectionalAction> a) {
@@ -5597,7 +5592,6 @@ void Executor::goBackward(ref<BackwardAction> action) {
         newPob->stack.pop_back();
       }
     }
-    //std::vector<ProofObligation *> newPobs;
     // If the state initial location is a "right after call" location,
     // the proof obligation is transferred to every return point of the call.
     if (state->initPC->parent->getKBlockType() == KBlockType::Call &&

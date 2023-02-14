@@ -79,7 +79,6 @@ private:
   void updatePropagations(std::vector<Propagation> &addedPropagations,
                           std::vector<Propagation> &removedPropagations);
 
-  void addPob(ProofObligation *);
   void removePob(ProofObligation *);
   void answerPob(ProofObligation *);
 };

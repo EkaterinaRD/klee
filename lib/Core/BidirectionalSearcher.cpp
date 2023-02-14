@@ -207,10 +207,7 @@ void BidirectionalSearcher::updateForward(
         !isa<KReturnBlock>(state->pc->parent) &&
         !isa<KReturnBlock>(state->prevPC->parent)) {
       Target target = Target(state->pc->parent);
-      //updateProp(addedProp, removedProp)
-      //backward->addState(target, state);
     }
-    //else delet from prop
   }
 
   if (targetedConflict) {
@@ -226,9 +223,8 @@ void BidirectionalSearcher::updateForward(
         llvm::errs() << "At: " << pob->location->getIRLocation() << "\n";
         llvm::errs() << "\n";
       }
-      addPob(pob);
-      // pobs.push_back(pob);
-      // initializer->addPob(pob);
+      pobs.push_back(pob);
+      initializer->addPob(pob);
     }
   }
 }
@@ -263,9 +259,8 @@ void BidirectionalSearcher::updateBranch(
 void BidirectionalSearcher::updateBackward(
     std::vector<ProofObligation *> newPobs, ProofObligation *oldPob) {
   for (auto pob : newPobs) {
-    addPob(pob);
-    // pobs.push_back(pob);
-    // initializer->addPob(pob);
+    pobs.push_back(pob);
+    initializer->addPob(pob);
   }
 }
 
@@ -389,12 +384,6 @@ bool isStuck(ExecutionState &state) {
   KInstruction *prevKI = state.prevPC;
   return prevKI->inst->isTerminator() && state.targets.empty() &&
          state.multilevel.count(state.getPCBlock()) > MaxCycles;
-}
-
-//delete?
-void BidirectionalSearcher::addPob(ProofObligation *pob) {
-  pobs.push_back(pob);
-  initializer->addPob(pob);
 }
 
 void BidirectionalSearcher::removePob(ProofObligation *pob) {

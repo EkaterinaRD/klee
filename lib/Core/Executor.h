@@ -287,7 +287,6 @@ private:
   std::unordered_multiset<Transition, TransitionHash> failedTransitions;
 
 public:
-  //ExecutionState *initialState;
 
   static void makeConflictCore(const ExecutionState &state,
                                const std::vector<ref<Expr>> &unsatCore,

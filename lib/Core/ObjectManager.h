@@ -11,8 +11,6 @@
 #include <vector>
 
 namespace klee {
-
-
 class ObjectManager {
 private:
   std::vector<Subscriber *> subscribers;
@@ -38,20 +36,16 @@ private:
   ref<TargetedConflict> targetedConflict;
 
   std::vector<ProofObligation *> pobs;
-  // ?
-  // std::set<ProofObligations *> pobs
   std::vector<ProofObligation *> addedPobs;
   std::vector<ProofObligation *> removedPobs;
 
   std::vector<Propagation> propagations;
-  // ?
-  // std::set<Propagation> propagations;
   std::vector<Propagation> addedPropagations;
   std::vector<Propagation> removedProgations;
 
   std::set<ExecutionState *, ExecutionStateIDCompare> targetedStates;
 public:
-  ObjectManager(/* args */);
+  ObjectManager();
 
   void subscribe(Subscriber *s);
   void subscribeAfterAll(Subscriber *s);

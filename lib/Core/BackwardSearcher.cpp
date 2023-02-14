@@ -42,6 +42,9 @@ void RecencyRankedSearcher::updatePropagations(std::vector<Propagation> &addedPr
   }
   for (auto rprop : removedPropagations) {
     propagatePobToStates[rprop.pob].erase(rprop.state);
+    bool propIsNull = propagatePobToStates[rprop.pob].empty();
+    if(propIsNull)
+      propagatePobToStates.erase(rprop.pob);
   }
 }
 

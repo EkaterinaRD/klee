@@ -3,7 +3,7 @@
 
 using namespace klee;
 
-ObjectManager::ObjectManager(/* args */) {}
+ObjectManager::ObjectManager() {}
 
 void ObjectManager::subscribe(Subscriber *s) {
   subscribers.push_back(s);
@@ -90,7 +90,6 @@ void ObjectManager::setResult() {
     break;
   }
 }
-///
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
@@ -111,8 +110,6 @@ std::vector<ProofObligation *> ObjectManager::getPobs() {
   return addedPobs;
 }
 
-//?
-//rename to initiBranchState
 ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
   KInstruction *loc = action->location;
   std::set<Target> &targets = action->targets;
@@ -140,8 +137,6 @@ void ObjectManager::addState(ExecutionState *state) {
   addedStates.push_back(state);
 }
 
-//?
-//rename to forkState?
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
  
@@ -217,8 +212,6 @@ void ObjectManager::addPobToState(ProofObligation *pob) {
 
 void ObjectManager::setReachedStates() {
   ref<ReachedStatesAction> act = cast<ReachedStatesAction>(_action);
-  //?
-  //assert?
   std::vector<ExecutionState *> reachedStates = act->reached;
 
   for (auto state : reachedStates) {
@@ -236,8 +229,6 @@ void ObjectManager::createPropagations() {
     for (auto state : addedStates) {
       addStateToPob(state);
     }
-    //?
-    //excess?
     for (auto pob : addedPobs) {
       addPobToState(pob);
     }
