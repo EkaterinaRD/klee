@@ -4,6 +4,7 @@
 #include "Path.h"
 #include "ProofObligation.h"
 #include "Database.h"
+#include "ObjectManager.h"
 #include "klee/Expr/Expr.h"
 #include "klee/Expr/ExprHashMap.h"
 #include "klee/Expr/Parser/Parser.h"
@@ -17,15 +18,7 @@
 namespace klee {
 struct Conflict;
 
-struct Lemma {
-  Path path;
-  ExprHashSet constraints;
-
-  bool operator==(const Lemma &other) {
-    return this->path == other.path && this->constraints == other.constraints;
-  }
-  Lemma(const Path &path) : path(path) {}
-};
+struct Lemma;
 
 class Summary {
 private:

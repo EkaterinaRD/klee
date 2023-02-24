@@ -603,8 +603,10 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
            ? interpreterHandler->getOutputFilename("summary.sqlite3")
            : SummaryDB);
 
-  summary = std::make_unique<Summary>(summaryFile.get(), summaryDBFilename);
-  summary->setArrayCache(arrayManager.arrayCache);
+  // summary = std::make_unique<Summary>(summaryFile.get(), summaryDBFilename);
+  objectManager.setDatabase(summaryFile.get(), summaryDBFilename);
+  // summary->setArrayCache(arrayManager.arrayCache);
+  objectManager.setArrayCache(arrayManager.arrayCache);
 
   Composer::executor = this;
 }
@@ -673,7 +675,8 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   Context::initialize(TD->isLittleEndian(),
                       (Expr::Width)TD->getPointerSizeInBits());
 
-  summary->setModule(kmodule.get());
+  // summary->setModule(kmodule.get());
+  objectManager.setModule(kmodule.get());
   return kmodule->module.get();
 }
 
@@ -5505,7 +5508,8 @@ void Executor::run(ExecutionState &state) {
   }
   objectManager.subscribe(searcher.get());
 
-  summary->loadAllFromDB();
+  // summary->loadAllFromDB();
+  objectManager.loadAllFromDB();
 
   while (!haltExecution) {
     auto action = searcher->selectAction();
@@ -5530,7 +5534,8 @@ void Executor::run(ExecutionState &state) {
   }
 
   doDumpStates();
-  summary->storeAllToDB();
+  // summary->storeAllToDB();
+  objectManager.storeAllToDB();
   searcher = nullptr;
   objectManager.deleteInitialAndEmptySt();
   results.clear();
@@ -5621,8 +5626,10 @@ void Executor::goBackward(ref<BackwardAction> action) {
     }
   } else {
     objectManager.removePob(newPob);
-    if (state->isIsolated() && conflictCore.size())
-      summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
+    if (state->isIsolated() && conflictCore.size()) {
+      // summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
+      objectManager.summarize(pob, makeConflict(*state, conflictCore), rebuildMap);
+    }
   }
 }
   int Executor::getBase(ref<Expr> expr,

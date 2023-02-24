@@ -1,3 +1,6 @@
+#ifndef KLEE_DATABASE_H
+#define KLEE_DATABASE_H
+
 /* -*- mode: c++; c-basic-offset: 2; -*- */
 #include <cstdint>
 #include <sqlite3.h>
@@ -64,3 +67,6 @@ public:
   void drop_schema();
 };
 } // namespace klee
+
+
+#endif /*KLEE_DATABASE_H*/

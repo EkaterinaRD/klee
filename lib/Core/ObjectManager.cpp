@@ -1,7 +1,25 @@
 #include "ObjectManager.h"
 #include "Composer.h"
+#include "CoreStats.h"
+#include "klee/Expr/ExprBuilder.h"
+#include "klee/Expr/ExprUtil.h"
+#include "klee/Support/ErrorHandling.h"
+#include "klee/Support/OptionCategories.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 using namespace klee;
+
+namespace {
+llvm::cl::opt<bool> DebugSummary(
+    "debug-summary",
+    llvm::cl::desc(""),
+    llvm::cl::init(false),
+    llvm::cl::cat(klee::DebugCat));
+}
+
+#ifndef divider
+#define divider(n) std::string(n, '-') + "\n"
+#endif
 
 ObjectManager::ObjectManager() {}
 
@@ -320,6 +338,87 @@ void ObjectManager::updateResult() {
   removedPobs.clear();
 }
 
+void ObjectManager::summarize(const ProofObligation *pob,
+                              const Conflict &conflict,
+                              const ExprHashMap<ref<Expr>> &rebuildMap) {
+  std::string label;
+  llvm::raw_string_ostream label_stream(label);
+
+  label_stream << "Add lemma for pob at: " << pob->location->getIRLocation() << (pob->atReturn() ? "(at return)" : "") << "\n";
+
+  label_stream << "Pob at "
+                 << (pob->atReturn()
+                         ? pob->location->getFirstInstruction()->getSourceLocation()
+                         : pob->location->getLastInstruction()->getSourceLocation())
+                 << "\n";
+
+  const Conflict::core_ty &core = conflict.core;
+  const Path &path = conflict.path;
+  auto &locationLemmas = locationMap[pob->location];
+  if(locationLemmas.empty()) {
+    ++stats::summarizedLocationCount;
+  }
+  Lemma *newLemma = new Lemma(path);
+  label_stream << "Constraints are:\n";
+
+  for (auto &constraint : core) {
+    ref<Expr> condition = constraint.first;
+    if (rebuildMap.count(condition)) {
+      ref<Expr> lemmaExpr = Expr::createIsZero(rebuildMap.at(condition));
+      newLemma->constraints.insert(lemmaExpr);
+      label_stream << lemmaExpr->toString() << "\n";
+    }
+  }
+
+  label_stream << "State Path is:\n";
+  label_stream << path.toString() << "\n";
+  label_stream << "Pob Path is:\n";
+  label_stream << pob->path.toString() << "\n";
+  label_stream << "\n";
+
+  (*summaryFile) << label_stream.str();
+
+  bool exists = false;
+
+  for (auto lemma : pathMap[path]) {
+    if (*lemma == *newLemma) {
+      exists = true;
+      break;
+    }
+  }
+
+  if (!exists) {
+    pathMap[path].insert(newLemma);
+    locationMap[path.getFinalBlock()].insert(newLemma);
+    lemmas.insert(newLemma);
+
+    if (DebugSummary) {
+      llvm::errs() << label_stream.str();
+      llvm::errs() << "Summary for pob at " << pob->location->getIRLocation() << "\n";
+      llvm::errs() << "Paths:\n";
+      llvm::errs() << newLemma->path.toString() << "\n";
+
+      ExprHashSet summary;
+      for (auto &expr : newLemma->constraints) {
+        summary.insert(expr);
+      }
+      llvm::errs() << "Lemma:\n";
+      llvm::errs() << "\n" << divider(30);
+      for (auto &expr : summary) {
+        llvm::errs() << divider(30);
+        llvm::errs() << expr << "\n";
+        llvm::errs() << divider(30);
+      }
+      llvm::errs() << divider(30);
+      llvm::errs() << "\n";
+    }
+  } else {
+    delete newLemma;
+  }
+
+}
+
+
 ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
   assert(pob->location->instructions[0]->inst == emptyState->initPC->inst);
 
@@ -384,7 +483,151 @@ bool ObjectManager::checkStack(ExecutionState *state, ProofObligation *pob) {
   return true;
 }
 
+void ObjectManager::storeLemmas() {
+  
+  for (auto lemma : lemmas) {
+    if(!lemmaDBMap.count(lemma)) {
+      
+      std::set<KFunction *> functions = lemma->path.getFunctionsInPath();
+      for (auto f : functions) {
+        db->functionhash_write(std::string(f->function->getName()),
+                                module->functionHash(f));
+      }
+      lemmaDBMap[lemma] = db->lemma_write(lemma->path);
+      uint64_t idLemma = lemmaDBMap[lemma];
+
+      for (auto constraint : lemma->constraints) {
+
+        if (!exprDBMap.count(constraint)) 
+          exprDBMap[constraint] = db->expr_write(constraint);
+        uint64_t idConstr = exprDBMap[constraint];
+        assert(lemmaDBMap.count(lemma) && "No lemma in DB");
+        assert(exprDBMap.count(constraint) && "No expr in DB");
+        db->constraint_write(idConstr, idLemma);
+
+        std::vector<const Array *> arrays;
+        klee::findSymbolicObjects(constraint, arrays);
+        for (auto array : arrays) {
+          if (!arrayDBMap.count(array))
+            arrayDBMap[array] = db->array_write(array);
+          uint64_t idArray = arrayDBMap[array];
+          assert(exprDBMap.count(constraint) && "No expr in DB");
+          assert(arrayDBMap.count(array) && "No array in DB");
+          db->arraymap_write(idArray, idConstr);
+        }
+        for (auto array : arrays) {
+          assert(arrayDBMap.count(array) && "No child in DB");
+          uint64_t idChild = arrayDBMap.count(array);
+          for (auto parent : array->parents) {
+            assert(arrayDBMap.count(parent) && "No parent in DB");
+            uint64_t idParent = arrayDBMap.count(parent);
+            db->parent_write(idChild, idParent);
+          }
+        }
+
+
+      }
+    }
+  }
+}
+
+void ObjectManager::makeArray(const std::map<uint64_t, std::string> &arrays,
+                              uint64_t id) {
+  if (arrayReverseDBMap.count(id))
+    return;
+
+  for (auto parent_id : arrayParentMap[id]) {
+    makeArray(arrays, parent_id);
+  }
+  auto buf = llvm::MemoryBuffer::getMemBuffer(arrays.at(id));
+  parser->ResetLexer(buf.get());
+  auto array = parser->ParseSingleArray();
+  arrayDBMap[array] = id;
+  arrayReverseDBMap[id] = array;
+}
+
+void ObjectManager::makeExprs(const std::map<uint64_t, std::string> &exprs) {
+  for (auto expr_pair : exprs) {
+    auto buf = llvm::MemoryBuffer::getMemBuffer(expr_pair.second);
+    parser->ResetLexer(buf.get());
+    auto expr = parser->ParseSingleExpr();
+    exprDBMap[expr] = expr_pair.first;
+    exprReverseDBMap[expr_pair.first] = expr; 
+  }
+}
+
+void ObjectManager::loadLemmas() {
+  ExprBuilder *builder = createDefaultExprBuilder();
+  parser = expr::Parser::Create("DBParser", 
+                                llvm::MemoryBuffer::getMemBuffer("").get(),
+                                builder, arrayCache, false);
+
+
+  auto arrays = db->arrays_retrieve();
+  auto parents = db->parents_retrieve();
+  for (const auto &parent : parents) {
+    arrayParentMap[parent.first].insert(parent.second);
+  }
+  for (const auto &array : arrays) {
+    makeArray(arrays, array.first);
+  }
+
+  auto exprs = db->exprs_retrieve();
+  makeExprs(exprs);
+
+  auto DBLemmas = db->lemmas_retrieve();
+  auto DBHashMap = db->functionhash_retrieve();
+  for (const auto &lemma : DBLemmas) {
+    ref<Path> path = parse(lemma.second.path, module, DBHashMap);
+    if (!path) {
+      db->lemma_delete(lemma.first);
+      continue;
+    }
+
+    Lemma *l = new Lemma(*path);
+    for (auto expr_id : lemma.second.exprs) {
+      l->constraints.insert(exprReverseDBMap[expr_id]);
+    }
+    pathMap[l->path].insert(l);
+    locationMap[l->path.getFinalBlock()].insert(l);
+    lemmas.insert(l);
+    lemmaDBMap[l] = lemma.first;
+  }
+
+  for (const auto &hash : DBHashMap) {
+    if (!module->functionNameMap.count(hash.first) || 
+        module->functionHash(module->functionNameMap[hash.first]) != 
+        DBHashMap[hash.first]) {
+      
+      db->hash_delete(hash.first);
+    }
+  }
+
+  db->exprs_purge();
+  db->arrays_purge();
+
+  delete parser;
+  delete builder;
+}
+
+void ObjectManager::storeAllToDB() {
+  // write all objects to DB
+  storeLemmas();
+}
+
+void ObjectManager::loadAllFromDB() {
+  // load all objects from DB
+  loadLemmas();
+}
+
+
+
+
 ObjectManager::~ObjectManager() {
   pobs.clear();
   propagations.clear();
+  for (auto lemma : lemmas) {
+    delete lemma;
+  }
+  delete db;
 }
