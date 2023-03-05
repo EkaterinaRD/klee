@@ -213,6 +213,7 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
       if (!state->isIsolated()) {
         ++state->backwardStepsLeftCounter;
       }
+      db->propagation_write(state, pob);
     }
   }
 }
@@ -224,6 +225,7 @@ void ObjectManager::addPobToState(ProofObligation *pob) {
                "Paths are not compatible.");
       Propagation prop(state, pob);
       addedPropagations.push_back(prop);
+      db->propagation_write(state, pob);
     }
   }
 }
@@ -298,7 +300,13 @@ void ObjectManager::updateResult() {
   //update states
   if (isa<ForwardResult>(result)) {
     ref<ForwardResult> fr = cast<ForwardResult>(result);
+    if (fr->current != nullptr) {
+      db->state_write(fr->current); 
+    }
     states.insert(fr->addedStates.begin(), fr->addedStates.end());
+    for (auto state: fr->addedStates) {
+      db->state_write(state);
+    }
     for (auto state : fr->removedStates) {
       std::set<ExecutionState *>::iterator it2 = states.find(state);
       assert(it2 != states.end());
@@ -312,7 +320,13 @@ void ObjectManager::updateResult() {
     }
   } else if (isa<BranchResult>(result)) {
     ref<BranchResult> brr = cast<BranchResult>(result);
+    if (brr->current != nullptr) {
+      db->state_write(brr->current); 
+    }
     isolatedStates.insert(brr->addedStates.begin(), brr->addedStates.end());
+    for (auto state: brr->addedStates) {
+      db->state_write(state);
+    }
     for (auto state : brr->removedStates) {
       std::set<ExecutionState *>::iterator it3 = isolatedStates.find(state);
       assert(it3 != isolatedStates.end());
@@ -606,18 +620,21 @@ void ObjectManager::loadLemmas() {
   db->exprs_purge();
   db->arrays_purge();
 
-  delete parser;
+  delete parser; // remove to end of storeAllToDB;
   delete builder;
 }
 
 void ObjectManager::storeAllToDB() {
   // write all objects to DB
   storeLemmas();
+  DBReady = false;
 }
 
 void ObjectManager::loadAllFromDB() {
   // load all objects from DB
   loadLemmas();
+
+  DBReady = true;
 }
 
 

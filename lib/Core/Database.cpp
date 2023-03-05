@@ -92,12 +92,25 @@ void Database::create_schema() {
                "hash TEXT,"
                "UNIQUE(function, hash))";
   finalize(sql_create, st);
+
+  // just states
+  sql_create = "CREATE TABLE states"
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "path TEXT,"         
+               "pathCondition TEXT,"          
+               "choiceBranch TEXT,"           
+               "countInstructions INTEGER,"  
+               "isIsolated TEXT)";
+  finalize(sql_create, st);
+  // propagations
+  sql_create = "CREATE TABLE propagations (state_id INTEGER, pob_id INTEGER)";
+  finalize(sql_create, st);
 }
 
 void Database::drop_schema() {
   sqlite3_stmt *st = nullptr;
   char const *sql_drop = "DROP TABLE IF EXISTS summary, array, expr,"
-                         "constr, arraymap, parent, functionhash";
+                         "constr, arraymap, parent, functionhash, states, propagations";
   finalize(sql_drop, st);
 }
 
@@ -175,6 +188,43 @@ void Database::arraymap_write(int64_t array, int64_t expr) {
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }
+}
+
+void Database::state_write(const ExecutionState *state) {
+  std::string state_id = std::to_string(state->getID()); 
+  std::string path = "'" + state->path.toString() + "'";
+  std::string pc = "'" + state->printConstraints() + "'";
+  std::string cb = "'" + state->executionPath + "'";
+  std::string ci = std::to_string(state->steppedInstructions); 
+  std::string isIsolated;
+  if (state->isIsolated()) {
+    isIsolated = "'true'";
+  } else {
+    isIsolated = "'false'";
+  }
+
+  std::string values = "(" + state_id + ", " 
+                           + path + ", " 
+                           + pc + ", " 
+                           + cb + ", " 
+                           + ci + ", " 
+                           + isIsolated + 
+                       ")";
+
+  std::string sql = "INSERT OR REPLACE INTO states (id, path, pathCondition, choiceBranch, countInstructions, isIsolated) VALUES " + values;
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::propagation_write(const ExecutionState *state, const ProofObligation *pob) {
+  std::string values = std::to_string(state->getID()) + ", " + std::to_string(pob->id);
+
+  std::string sql = "INSERT INTO propagations (state_id, pob_id) VALUES (" 
+                    + values + ");";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  } 
 }
 
 std::string Database::array_retrieve(int64_t id) {

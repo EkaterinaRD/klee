@@ -5,7 +5,6 @@
 #include "SearcherUtil.h"
 #include "ProofObligation.h"
 #include "Subscriber.h"
-// #include "Summary.h"
 #include "Database.h"
 #include "klee/Expr/Expr.h"
 #include "klee/Expr/ExprHashMap.h"
@@ -74,6 +73,7 @@ private:
   std::set<Lemma *> lemmas;
 
   // 7. Database;
+  bool DBReady = false;
   Database *db;
   expr::Parser *parser;
   ArrayCache *arrayCache;

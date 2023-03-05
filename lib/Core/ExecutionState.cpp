@@ -628,6 +628,13 @@ void ExecutionState::print(llvm::raw_ostream &os) const {
   }
 }
 
+std::string ExecutionState::printConstraints() const {
+  std::string str;
+  llvm::raw_string_ostream output(str);
+  output << this->constraints;
+  return str;
+}
+
 ExecutionManager::~ExecutionManager() {
   for (const auto state : states) {
     delete state;

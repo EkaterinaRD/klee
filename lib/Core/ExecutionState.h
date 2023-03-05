@@ -368,6 +368,7 @@ public:
   // for debugging
   static void printCompareList(const ExecutionState &, const ExecutionState &, llvm::raw_ostream &);
   void print(llvm::raw_ostream & os) const;
+  std::string printConstraints() const;
 };
 
 struct ExecutionStateIDCompare {
