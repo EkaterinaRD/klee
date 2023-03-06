@@ -21,6 +21,28 @@ llvm::cl::opt<bool> DebugSummary(
 #define divider(n) std::string(n, '-') + "\n"
 #endif
 
+ConvertState::ConvertState(const ExecutionState *state) {
+  state_id = std::to_string(state->getID());
+  il = "'" + state->initPC->parent->getLabel() + "'";
+  cl = "'" + state->pc->parent->getLabel() + "'";
+  path = "'" + state->path.toString() + "'";
+  pc = "'" + state->printConstraints() + "'";
+  cb = "'" + state->executionPath + "'";
+  ci = std::to_string(state->steppedInstructions);
+  if (state->isIsolated()) {
+    isIsolated = "'true'";
+  } else {
+    isIsolated = "'false'";
+  }
+}
+
+std::string ConvertState::getValues() const {
+  std::string values;
+  values = "(" + state_id + ", " + il + ", " + cl + ", " + path + ", " + pc + ", " + cb + ", " + ci + ", " + isIsolated + ")";
+   
+  return values;
+}
+
 ObjectManager::ObjectManager() {}
 
 void ObjectManager::subscribe(Subscriber *s) {
@@ -111,6 +133,7 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
+  db->pob_write(newPob);
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {
@@ -301,11 +324,13 @@ void ObjectManager::updateResult() {
   if (isa<ForwardResult>(result)) {
     ref<ForwardResult> fr = cast<ForwardResult>(result);
     if (fr->current != nullptr) {
-      db->state_write(fr->current); 
+      ConvertState cs(fr->current);
+      db->state_write(cs);
     }
     states.insert(fr->addedStates.begin(), fr->addedStates.end());
     for (auto state: fr->addedStates) {
-      db->state_write(state);
+      ConvertState cs(state);
+      db->state_write(cs);
     }
     for (auto state : fr->removedStates) {
       std::set<ExecutionState *>::iterator it2 = states.find(state);
@@ -321,11 +346,13 @@ void ObjectManager::updateResult() {
   } else if (isa<BranchResult>(result)) {
     ref<BranchResult> brr = cast<BranchResult>(result);
     if (brr->current != nullptr) {
-      db->state_write(brr->current); 
+      ConvertState cs(brr->current);
+      db->state_write(cs); 
     }
     isolatedStates.insert(brr->addedStates.begin(), brr->addedStates.end());
     for (auto state: brr->addedStates) {
-      db->state_write(state);
+      ConvertState cs(state);
+      db->state_write(cs);
     }
     for (auto state : brr->removedStates) {
       std::set<ExecutionState *>::iterator it3 = isolatedStates.find(state);

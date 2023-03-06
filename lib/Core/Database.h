@@ -16,6 +16,7 @@
 namespace klee {
 
 struct Lemma;
+struct ConvertState;
 
 // Wrapper class for database interaction
 class Database {
@@ -49,8 +50,10 @@ public:
   void constraint_write(int64_t expr, int64_t summary);
   void arraymap_write(int64_t array, int64_t expr);
 
-  void state_write(const ExecutionState *state);
+  // void state_write(const ExecutionState *state);
+  void state_write(const ConvertState &state);
   void propagation_write(const ExecutionState *state, const ProofObligation *pob);
+  void pob_write(const ProofObligation *pob);
 
   std::string array_retrieve(int64_t id);
   std::string expr_retrieve(int64_t id);

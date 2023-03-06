@@ -29,6 +29,22 @@ struct Lemma {
   Lemma(const Path &path) : path(path) {}
 };
 
+struct ConvertState {
+
+  std::string getValues() const;
+  ConvertState(const ExecutionState *state);
+
+private: 
+  std::string state_id; 
+  std::string il;
+  std::string cl;
+  std::string path;
+  std::string pc;
+  std::string cb;
+  std::string ci; 
+  std::string isIsolated;
+};
+
 class ObjectManager {
 private:
   // 1. Subscribers

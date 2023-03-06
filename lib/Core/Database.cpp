@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "Path.h"
+#include "ObjectManager.h"
 #include "klee/Expr/Expr.h"
 #include "klee/Expr/ExprBuilder.h"
 #include "klee/Expr/ExprPPrinter.h"
@@ -94,8 +95,10 @@ void Database::create_schema() {
   finalize(sql_create, st);
 
   // just states
-  sql_create = "CREATE TABLE states"
+  sql_create = "CREATE TABLE states "
                "(id INTEGER NOT NULL PRIMARY KEY,"
+               "initLocation TEXT,"
+               "currLocation TEXT,"
                "path TEXT,"         
                "pathCondition TEXT,"          
                "choiceBranch TEXT,"           
@@ -105,12 +108,21 @@ void Database::create_schema() {
   // propagations
   sql_create = "CREATE TABLE propagations (state_id INTEGER, pob_id INTEGER)";
   finalize(sql_create, st);
+  // pobs
+  sql_create = "CREATE TABLE pobs "
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "initLocation TEXT,"
+               "currLocation TEXT,"
+               "path TEXT,"
+               "pathCondition TEXT"
+               ")";
+  finalize(sql_create, st);
 }
 
 void Database::drop_schema() {
   sqlite3_stmt *st = nullptr;
   char const *sql_drop = "DROP TABLE IF EXISTS summary, array, expr,"
-                         "constr, arraymap, parent, functionhash, states, propagations";
+                         "constr, arraymap, parent, functionhash, states, propagations, pobs";
   finalize(sql_drop, st);
 }
 
@@ -190,28 +202,31 @@ void Database::arraymap_write(int64_t array, int64_t expr) {
   }
 }
 
-void Database::state_write(const ExecutionState *state) {
-  std::string state_id = std::to_string(state->getID()); 
-  std::string path = "'" + state->path.toString() + "'";
-  std::string pc = "'" + state->printConstraints() + "'";
-  std::string cb = "'" + state->executionPath + "'";
-  std::string ci = std::to_string(state->steppedInstructions); 
-  std::string isIsolated;
-  if (state->isIsolated()) {
-    isIsolated = "'true'";
-  } else {
-    isIsolated = "'false'";
+void Database::state_write(const ConvertState &state) {
+
+  std::string sql = "INSERT OR REPLACE INTO states (id, initLocation, currLocation, path, pathCondition, choiceBranch, countInstructions, isIsolated) VALUES " + state.getValues();
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
   }
+}
 
-  std::string values = "(" + state_id + ", " 
-                           + path + ", " 
-                           + pc + ", " 
-                           + cb + ", " 
-                           + ci + ", " 
-                           + isIsolated + 
-                       ")";
+void Database::pob_write(const ProofObligation *pob) {
 
-  std::string sql = "INSERT OR REPLACE INTO states (id, path, pathCondition, choiceBranch, countInstructions, isIsolated) VALUES " + values;
+  std::string values = std::to_string(pob->id) + ", "
+                     + "'" + pob->root->location->getLabel() + "', "
+                     + "'" + pob->location->getLabel() + "', "
+                     + "'" + pob->path.toString() + "', ";
+  std::string pc = "'";
+  if (!pob->condition.empty()) {
+    for (auto i : pob->condition) {
+      pc += i->toString();
+    }
+  }
+  pc += "'";
+  values += pc;
+
+  std::string sql = "INSERT INTO pobs (id, initLocation, currLocation, path, pathCondition) VALUES (" + values + ");";
+
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }

@@ -1196,6 +1196,7 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
       }
     }
 
+    // add to db
     return StatePair(&current, 0);
   } else if (res==Solver::False) {
     if (!isInternal) {
@@ -1205,6 +1206,7 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
       }
     }
 
+    // add to db
     return StatePair(0, &current);
   } else {
     TimerStatIncrementer timer(stats::forkTime);
@@ -1278,9 +1280,11 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
     if (MaxDepth && MaxDepth<=trueState->depth) {
       terminateStateEarly(*trueState, "max-depth exceeded.");
       terminateStateEarly(*falseState, "max-depth exceeded.");
+      // add to db
       return StatePair(0, 0);
     }
 
+    // add to db
     return StatePair(trueState, falseState);
   }
 }
