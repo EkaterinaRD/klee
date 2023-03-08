@@ -103,7 +103,8 @@ void Database::create_schema() {
                "pathCondition TEXT,"          
                "choiceBranch TEXT,"           
                "countInstructions INTEGER,"  
-               "isIsolated TEXT)";
+               "isIsolated TEXT,"
+               "terminated TEXT)";
   finalize(sql_create, st);
   // propagations
   sql_create = "CREATE TABLE propagations (state_id INTEGER, pob_id INTEGER)";
@@ -204,7 +205,7 @@ void Database::arraymap_write(int64_t array, int64_t expr) {
 
 void Database::state_write(const ConvertState &state) {
 
-  std::string sql = "INSERT OR REPLACE INTO states (id, initLocation, currLocation, path, pathCondition, choiceBranch, countInstructions, isIsolated) VALUES " + state.getValues();
+  std::string sql = "INSERT OR REPLACE INTO states (id, initLocation, currLocation, path, pathCondition, choiceBranch, countInstructions, isIsolated, terminated) VALUES " + state.getValues();
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }

@@ -32,7 +32,7 @@ struct Lemma {
 struct ConvertState {
 
   std::string getValues() const;
-  ConvertState(const ExecutionState *state);
+  ConvertState(const ExecutionState *state, bool isTerminated);
 
 private: 
   std::string state_id; 
@@ -43,6 +43,7 @@ private:
   std::string cb;
   std::string ci; 
   std::string isIsolated;
+  std::string terminated;
 };
 
 class ObjectManager {
@@ -104,6 +105,8 @@ private:
   std::map<const Array *, int64_t> arrayDBMap;
   std::map<uint64_t, std::set<uint64_t>> arrayParentMap;
   std::map<int64_t, const Array *> arrayReverseDBMap;
+  // 7.4 States
+  std::vector<ConvertState> statesDB;
 
 public:
   ObjectManager();
@@ -151,6 +154,7 @@ public:
   void summarize(const ProofObligation *pob,
                  const Conflict &conflict,
                  const ExprHashMap<ref<Expr>> &rebuildMap);
+  void saveState(const ExecutionState *state, bool isTerminated);                 
   void storeAllToDB();               
   void loadAllFromDB();
   void makeArray(const std::map<uint64_t, std::string> &arrays, uint64_t id);
@@ -171,7 +175,7 @@ private:
   ExecutionState *replayStateFromPob(ProofObligation *pob);
 
   // void storePobs();
-  // void storeStates();
+  void storeStates();
   // void storePropagations();
   void storeLemmas();
   // void loadPobs();
