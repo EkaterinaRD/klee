@@ -185,6 +185,7 @@ ExecutionState *ExecutionState::branch() {
   depth++;
 
   auto *falseState = new ExecutionState(*this);
+  falseState->parent_id = this->getID();
   falseState->setID();
   falseState->coveredNew = false;
   falseState->coveredLines.clear();
@@ -195,6 +196,7 @@ ExecutionState *ExecutionState::branch() {
 ExecutionState *ExecutionState::withKFunction(KFunction *kf) const {
   assert(stack.size() == 0);
   ExecutionState *newState = new ExecutionState(*this);
+  newState->parent_id = this->getID();
   newState->setID();
   newState->pushFrame(nullptr, kf);
   newState->stackBalance = 0;
@@ -208,6 +210,7 @@ ExecutionState *ExecutionState::withKFunction(KFunction *kf) const {
 ExecutionState *ExecutionState::withKBlock(KBlock *kb) const {
   assert(stack.size() == 0);
   ExecutionState *newState = new ExecutionState(*this);
+  newState->parent_id = this->getID();
   newState->setID();
   newState->pushFrame(nullptr, kb->parent);
   newState->stackBalance = 0;
@@ -221,6 +224,7 @@ ExecutionState *ExecutionState::withKBlock(KBlock *kb) const {
 ExecutionState *ExecutionState::withKInstruction(KInstruction *ki) const {
   assert(stack.size() == 0);
   ExecutionState *newState = new ExecutionState(*this);
+  newState->parent_id = this->getID();
   newState->setID();
   newState->pushFrame(nullptr, ki->parent->parent);
   newState->stackBalance = 0;
@@ -236,6 +240,7 @@ ExecutionState *ExecutionState::withKInstruction(KInstruction *ki) const {
 
 ExecutionState *ExecutionState::copy() const {
   ExecutionState* newState = new ExecutionState(*this);
+  newState->parent_id = this->getID();
   newState->setID();
   return newState;
 }

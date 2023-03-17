@@ -300,6 +300,7 @@ public:
 
   /// @brief the state id
   std::uint32_t id {0};
+  std::uint32_t parent_id {0};
 
   /// @brief Whether a new instruction was covered in this state
   bool coveredNew;

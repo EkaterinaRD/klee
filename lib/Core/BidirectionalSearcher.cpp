@@ -114,7 +114,7 @@ void BidirectionalSearcher::pauseState(ExecutionState *state, BidirectionalSearc
     break;
   }
   assert(std::find(pausedStates.begin(), pausedStates.end(), state) == pausedStates.end());
-  pausedStates.push_back(state);
+  pausedStates.push_back(state); //print add state to pausedState
 }
 
 ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
@@ -131,6 +131,7 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
       }
 
       if (PruneStates && state.failedBackwardStepsCounter > 0) {
+        // llvm::errs() << "Add state: " << state.getID() << " to pausedState\n";
         pauseState(&state, StepKind::Forward);
         break;
       }
@@ -142,6 +143,7 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
           forward->update(&state, {}, {});
           action = new ForwardAction(&state);
         } else {
+          // llvm::errs() << "Add state: " << state.getID() << " to pausedState\n";
           pauseState(&state, StepKind::Forward);
         }
       } else {
@@ -156,6 +158,7 @@ ref<BidirectionalAction> BidirectionalSearcher::selectAction() {
       if (initialState->getInitPCBlock() != state.getInitPCBlock() &&
           prevKI->inst->isTerminator() &&
           state.multilevel.count(state.getPCBlock()) > 0) {
+        // llvm::errs() << "Add state: " << state.getID() << " to pausedState\n";
         pauseState(&state, StepKind::Branch);
       } else {
         action = new BranchAction(&state);
@@ -216,7 +219,8 @@ void BidirectionalSearcher::updateForward(
       rootBlocks.insert(targetedConflict->target->basicBlock);
       initializer->addConflictInit(targetedConflict->conflict,
                                    targetedConflict->target);
-      ProofObligation *pob = new ProofObligation(targetedConflict->target);
+      ProofObligation *pob = new ProofObligation(targetedConflict->target); //print new pob
+      // llvm::errs() << "New pob: " << pob->id << "\n";
       objMng->addPob(pob);
       if (DebugBidirectionalSearcher) {
         llvm::errs() << "Add new proof obligation.\n";
@@ -250,7 +254,8 @@ void BidirectionalSearcher::updateBranch(
         llvm::errs() << "Constraints:\n" << state->constraints;
         llvm::errs() << "\n";
       }
-      ExecutionState *copyState = state->copy();
+      ExecutionState *copyState = state->copy(); //print copy reached state for pob
+      // llvm::errs() << "Copy state(reached) for pob: " << copyState->parent_id << "->" << copyState->getID() << "\n";
       reached.push_back(copyState);
     }
   }
@@ -370,13 +375,15 @@ void BidirectionalSearcher::closeProofObligation(ProofObligation *pob) {
   std::queue<ProofObligation *> pobs;
   pobs.push(pob->root ? pob->root : pob);
   while (pobs.size()) {
-    ProofObligation *currPob = pobs.front();
+    ProofObligation *currPob = pobs.front(); //print pob for closeProofObligation
+    // llvm::errs() << "Pob: " << currPob->id << " from closeProofObligation" << "\n";
     pobs.pop();
     for (auto child : currPob->children) {
       pobs.push(child);
     }
     removePob(currPob);
-    delete currPob;
+    // llvm::errs() << "Delete pob: " << currPob->id << " from closeProofObligation" << "\n";
+    delete currPob; //print delete pob for closeProofObligation
   }
 }
 
@@ -454,6 +461,7 @@ ref<BidirectionalAction> GuidedOnlySearcher::selectAction() {
         searcher->update(&state, {}, {});
         action = new ForwardAction(&state);
       } else {
+        // llvm::errs() << "Add state: " << state.getID() << " to pausedState\n";
         pauseState(&state);
       }
     } else

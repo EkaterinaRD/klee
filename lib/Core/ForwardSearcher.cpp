@@ -435,7 +435,7 @@ void GuidedSearcher::innerUpdate(
   }
   
   
-  if (current)
+  if (current) //{}?
     
     for (auto i : current->targets)
       targets.insert(i);

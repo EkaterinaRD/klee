@@ -1212,7 +1212,8 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
 
     ++stats::forks;
 
-    falseState = objectManager.branchState(trueState);
+    falseState = objectManager.branchState(trueState); //print fork state
+    // llvm::errs() << "Fork state: " << falseState->parent_id << "->" << falseState->getID() << "\n";
 
 
     if (it != seedMap->end()) {
@@ -5585,7 +5586,8 @@ void Executor::goBackward(ref<BackwardAction> action) {
   Conflict::core_ty conflictCore;
   ExprHashMap<ref<Expr>> rebuildMap;
 
-  ProofObligation *newPob = new ProofObligation(state->initPC->parent, pob);
+  ProofObligation *newPob = new ProofObligation(state->initPC->parent, pob); //print new pob from (state, pob)
+  // llvm::errs() << "New pob: " << newPob->id << " from (state, pob): (" << state->getID() << ", " << pob->id << ")\n";
   bool success = Composer::tryRebuild(*pob, *state, *newPob, conflictCore, rebuildMap);
   timers.invoke();
 
@@ -5608,15 +5610,18 @@ void Executor::goBackward(ref<BackwardAction> action) {
       for (auto i : kf->returnKBlocks) {
         ProofObligation *callPob = propagateToReturn(
             newPob, state->initPC->parent->instructions[0], i);
-        objectManager.addPob(callPob);
+        // llvm::errs() << "CallPob: " << callPob->id << "\n"; 
+        objectManager.addPob(callPob); //print new pob - callPob
       }
       objectManager.removePob(newPob);
+      // llvm::errs() << "Add pob: " << newPob->id << "to removedPob\n"; 
     } else {
       objectManager.addPob(newPob);
     }
     if (DebugExecutor) {
       llvm::errs() << "Propagated pobs\n";
       for (auto &pob : objectManager.getPobs()) {
+        llvm::errs() << "Pob ID: " << pob->id << "\n";
         llvm::errs() << "Path: " << pob->path.toString() << "\n";
         llvm::errs() << "Constraints:\n" << pob->condition << "\n";
         llvm::errs() << "\n";
@@ -5627,6 +5632,7 @@ void Executor::goBackward(ref<BackwardAction> action) {
       pob->children.insert(newPob);
     }
   } else {
+    // llvm::errs() << "Add pob: " << newPob->id << "to removedPob\n";
     objectManager.removePob(newPob);
     if (state->isIsolated() && conflictCore.size()) {
       // summary->summarize(pob, makeConflict(*state, conflictCore), rebuildMap);

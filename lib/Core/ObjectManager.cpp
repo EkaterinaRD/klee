@@ -75,11 +75,13 @@ void ObjectManager::unsubscribe(Subscriber *s) {
 }
 
 void ObjectManager::setInitialAndEmtySt(ExecutionState *state) {
-  initialState = state->copy();
+  initialState = state->copy(); //print initialState
+  // llvm::errs() << "InitialState: " << initialState->getID() << "\n";
 
   emptyState = state->copy();
   emptyState->stack.clear();
-  emptyState->isolated = true;
+  emptyState->isolated = true; //print emptyState
+  // llvm::errs() << "EmptyState: " << emptyState->getID() << "\n";
 }
 
 void ObjectManager::deleteInitialAndEmptySt() {
@@ -162,10 +164,13 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
 
   ExecutionState *state = nullptr;
   if (loc == initialState->initPC) {
-    state = initialState->copy();
+    state = initialState->copy(); //print initBranch from initialStae
+    // llvm::errs() << "InitBranch from initialState: " << state->parent_id << "->" << state->getID() << "\n";
     state->isolated = true;
-  } else 
-    state = emptyState->withKInstruction(loc); 
+  } else {
+    state = emptyState->withKInstruction(loc); //print initBranch from emptyState
+    // llvm::errs() << "InitBranch from emptyState: " << state->parent_id << "->" << state->getID() << "\n";
+  }
   isolatedStates.insert(state);
   for (auto target : targets) {
     state->targets.insert(target);
@@ -185,7 +190,9 @@ void ObjectManager::addState(ExecutionState *state) {
 
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
- 
+  
+  // llvm::errs() << "Branch from state: " << newState->parent_id << " to: " << newState->getID() << "\n";
+
   addedStates.push_back(newState);
 
   return newState;
@@ -236,7 +243,7 @@ void ObjectManager::addStateToPob(ExecutionState *state) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
-      
+      // llvm::errs() << "Add prop: state: " << state->getID() << " pob: " << pob->id <<"\n";
       addedPropagations.push_back(prop);
       if (!state->isIsolated()) {
         ++state->backwardStepsLeftCounter;
@@ -252,6 +259,7 @@ void ObjectManager::addPobToState(ProofObligation *pob) {
       assert(state->path.getFinalBlock() == pob->path.getInitialBlock() &&
                "Paths are not compatible.");
       Propagation prop(state, pob);
+      // llvm::errs() << "Add prop: state: " << state->getID() << " pob: " << pob->id <<"\n";
       addedPropagations.push_back(prop);
       db->propagation_write(state, pob);
     }
@@ -334,7 +342,8 @@ void ObjectManager::updateResult() {
       std::set<ExecutionState *>::iterator it2 = states.find(state);
       assert(it2 != states.end());
       states.erase(it2);
-      delete state;
+      // llvm::errs() << "Delete state: " << state->getID() << "\n";
+      delete state; //print delete forward state
     }
     if (!addedPobs.empty()) {
       for (auto pob : addedPobs) {
@@ -348,7 +357,8 @@ void ObjectManager::updateResult() {
       std::set<ExecutionState *>::iterator it3 = isolatedStates.find(state);
       assert(it3 != isolatedStates.end());
       isolatedStates.erase(it3);
-      delete state;
+      // llvm::errs() << "Delete isolated state: " << state->getID() << "\n";
+      delete state; //print delete branch state
     }
   }
 
@@ -362,7 +372,8 @@ void ObjectManager::updateResult() {
   }
   for (auto pob : removedPobs) {
     pob->detachParent();
-    delete pob;
+    // llvm::errs() << "Delete pob: " << pob->id << "\n";
+    delete pob; //print delete pob
   }
 
   addedPobs.clear();
@@ -458,7 +469,8 @@ void ObjectManager::saveState(const ExecutionState *state, bool isTerminated) {
 ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
   assert(pob->location->instructions[0]->inst == emptyState->initPC->inst);
 
-  ExecutionState *replayState = initialState->copy();
+  ExecutionState *replayState = initialState->copy(); //print replayState
+  // llvm::errs() << "Replay state: " << replayState->parent_id << "->" << replayState->getID() << "\n";
   for (const auto &constraint : pob->condition) {
     replayState->addConstraint(constraint, pob->condition.getLocation(constraint));
   }
@@ -472,7 +484,8 @@ ExecutionState *ObjectManager::replayStateFromPob(ProofObligation *pob) {
   std::vector<Propagation> rProps = {};
   result = new ForwardResult(nullptr, {replayState}, {}, aProps, rProps);
   updateResult();
-  return replayState;
+  // llvm::errs() << "Delete replayState: " << replayState->getID() << "\n"; 
+  return replayState; 
 }
 
 std::vector<ExecutionState *> ObjectManager::closeProofObligation(bool replayStateFromProofObligation) {

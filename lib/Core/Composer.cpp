@@ -75,7 +75,8 @@ std::map<const ExecutionState *, ExprHashMap<ref<Expr>>,
 Composer::~Composer() {
   globalReadCache.erase(&copy);
   globalDerefCache.erase(&copy);
-  delete &copy;
+  // llvm::errs() << "Delete composer state: " << copy.getID() << "\n";
+  delete &copy; //print delete composer state
 }
 
 bool Composer::tryRebuild(const ref<Expr> expr, ref<Expr> &res) {
@@ -96,7 +97,8 @@ bool Composer::tryRebuild(const ProofObligation &old, ExecutionState &state,
                           Conflict::core_ty &conflictCore,
                           ExprHashMap<ref<Expr>> &rebuildMap) {
   bool success = true;
-  Composer composer(state);
+  Composer composer(state); //print state composer
+  // llvm::errs() << "Composer state: " << composer.copy.parent_id << "->" << composer.copy.getID() << "\n";
   for (auto &constraint : old.condition) {
     auto loc = old.condition.getLocation(constraint);
     ref<Expr> rebuiltConstraint;
