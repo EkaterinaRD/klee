@@ -103,8 +103,8 @@ void Database::create_schema() {
                "pathCondition TEXT,"          
                "choiceBranch TEXT,"           
                "countInstructions INTEGER,"  
-               "isIsolated TEXT,"
-               "terminated TEXT)";
+               "isIsolated INTEGER,"
+               "terminated INTEGER)";
   finalize(sql_create, st);
   // propagations
   sql_create = "CREATE TABLE propagations (state_id INTEGER, pob_id INTEGER)";
@@ -112,10 +112,36 @@ void Database::create_schema() {
   // pobs
   sql_create = "CREATE TABLE pobs "
                "(id INTEGER NOT NULL PRIMARY KEY,"
-               "initLocation TEXT,"
-               "currLocation TEXT,"
+               "root INTEGER,"
+               "parent INTEGER,"
+               "location TEXT,"
                "path TEXT,"
-               "pathCondition TEXT"
+               "condition TEXT"
+               ")";
+  finalize(sql_create, st);
+  // unordered_set<ProofObligation *> children;
+  sql_create = "CREATE TABLE pobChildren "
+               "(pob_id INTEGER,"
+               "child_id INTEGER"
+               ")";
+  finalize(sql_create, st);
+  // map<ExecutionState *, unsigned> propagationCount;
+  sql_create = "CREATE TABLE propagationCount "
+               "(pob_id INTEGER,"
+               "state_id INTEGER,"
+               "count INTEGER"
+               ")";
+  finalize(sql_create, st);
+  // std::vector<KInstruction *> stack;
+  sql_create = "CREATE TABLE stackPob "
+               "(pob_id INTEGER,"
+               "numInstr INTEGER,"
+               "instr TEXT"
+               ")";
+  finalize(sql_create, st);
+  sql_create = "CREATE TABLE maxIDObjects "
+               "(max_state_id INTEGER,"
+               "max_pob_id INTEGER"
                ")";
   finalize(sql_create, st);
 }
@@ -123,7 +149,7 @@ void Database::create_schema() {
 void Database::drop_schema() {
   sqlite3_stmt *st = nullptr;
   char const *sql_drop = "DROP TABLE IF EXISTS summary, array, expr,"
-                         "constr, arraymap, parent, functionhash, states, propagations, pobs";
+                         "constr, arraymap, parent, functionhash, states, propagations, pobs, pobChildren, propagationCount, maxIDObjects";
   finalize(sql_drop, st);
 }
 
@@ -214,9 +240,16 @@ void Database::state_write(const ConvertState &state) {
 void Database::pob_write(const ProofObligation *pob) {
 
   std::string values = std::to_string(pob->id) + ", "
-                     + "'" + pob->root->location->getLabel() + "', "
-                     + "'" + pob->location->getLabel() + "', "
-                     + "'" + pob->path.toString() + "', ";
+                     +  std::to_string(pob->root->id) + ", ";
+  if (pob->parent) {
+    values += std::to_string(pob->parent->id) + ", ";
+  } else {
+    values += "NULL, ";
+  }
+  values += "'";
+  values += pob->location->toString();
+  values += "', ";
+  values += "'" + pob->path.toString() + "', ";
   std::string pc = "'";
   if (!pob->condition.empty()) {
     for (auto i : pob->condition) {
@@ -226,10 +259,42 @@ void Database::pob_write(const ProofObligation *pob) {
   pc += "'";
   values += pc;
 
-  std::string sql = "INSERT INTO pobs (id, initLocation, currLocation, path, pathCondition) VALUES (" + values + ");";
+  std::string sql = "INSERT INTO pobs (id, root, parent, location, path, condition) VALUES (" + values + ");";
 
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
+  }
+
+  pobChild_write(pob);
+  propagationCount_write(pob);
+}
+
+void Database::pobChild_write(const ProofObligation *pob) {
+
+  std::string pob_id = std::to_string(pob->id) + ", ";
+
+  for (auto child : pob->children) {
+    std::string values = pob_id + std::to_string(child->id);
+    std::string sql = "INSERT INTO pobChild (pob_id, child_id) VALUES (" + values + ");";   
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+       exit(1);
+    }
+  }
+}
+
+void Database::propagationCount_write(const ProofObligation *pob) {
+  std::string pob_id = std::to_string(pob->id) + ", ";
+
+  for (auto item : pob->propagationCount) {
+    auto state = item.first;
+    auto count = item.second;
+    std::string values  = pob_id + std::to_string(state->getID()) + ", " + std::to_string(count);
+
+    std::string sql = "INSERT INTO propagationCount (pob_id, state_id, count) VALUES (" + values + ");";
+
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+       exit(1);
+    }
   }
 }
 
@@ -317,6 +382,74 @@ std::map<uint64_t, Database::DBLemma> Database::lemmas_retrieve() {
       exit(1);
   }
   return lemmas;
+}
+
+std::vector<Database::DBState> Database::states_retrieve() {
+  std::vector<Database::DBState> states;
+  std::string sql = "SELECT id, initLocation, currLocation, path, pathCondition, choiceBranch, countInstructions, isIsolated, terminated FROM states";
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    Database::DBState state;
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW:
+      // lemmas.insert(std::make_pair(sqlite3_column_int(st, 0),
+      //                              DBLemma(sqlite3_column_text(st, 1))));
+      state.state_id = sqlite3_column_int(st, 0);
+      state.initLocation = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 1)));
+      state.currLocation = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 2)));
+      state.path = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 3)));
+      state.pathCondition = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 4)));
+      state.choiceBranch = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 5)));
+      state.countInstructions = sqlite3_column_int(st, 6);
+      state.isIsolated = sqlite3_column_int(st, 7);
+      state.terminated = sqlite3_column_int(st, 8);
+      states.push_back(state);
+      break;
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+
+  return states;
+}
+
+std::vector<Database::DBPob> Database::pobs_retrieve() {
+  std::vector<Database::DBPob> pobs;
+  std::string sql = "SELECT id, root, parent, location, path, condition FROM pobs";
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    Database::DBPob pob;
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW:
+      // lemmas.insert(std::make_pair(sqlite3_column_int(st, 0),
+      //                              DBLemma(sqlite3_column_text(st, 1))));
+      pob.pob_id = sqlite3_column_int(st, 0);
+      pob.root_id = sqlite3_column_int(st, 1);
+      pob.parent_id = sqlite3_column_int(st, 2);
+      pob.location = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 3)));
+      pob.path = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 4)));
+      pob.pathCondition = std::string(reinterpret_cast<const char *>(sqlite3_column_text(st, 5)));
+      
+      pobs.push_back(pob);
+      break;
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  return pobs;
 }
 
 std::map<std::string, size_t> Database::functionhash_retrieve() {

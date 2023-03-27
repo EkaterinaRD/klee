@@ -87,7 +87,10 @@ namespace klee {
     KInstruction * getLastInstruction() const noexcept { return instructions[numInstructions - 1]; }
     std::string getIRLocation() const;
     std::string getLabel() const;
+    std::string toString() const;
   };
+std::pair<KFunction *, KBlock *>parseBlock(std::string str, KModule *m,
+                          const std::map<std::string, size_t> &DBHashMap);
 
   struct KFunction {
     KModule *parent;

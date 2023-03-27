@@ -48,6 +48,9 @@ public:
     }
   }
 
+  ProofObligation(int _id) : id(_id) { }
+  //setCounter (for(){counter++})
+
   explicit ProofObligation(ProofObligation *pob)
       : id(counter++), parent(pob->parent), root(pob->root), stack(pob->stack),
         propagationCount(pob->propagationCount),

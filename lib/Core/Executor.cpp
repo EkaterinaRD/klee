@@ -5429,6 +5429,10 @@ void Executor::run(ExecutionState &state) {
   objectManager.setInitialAndEmtySt(&state);
 
   timers.reset();
+  if (SummaryDB != "") {
+    objectManager.loadAllFromDB(&state);
+  }
+
   objectManager.addState(&state);
 
   SearcherConfig cfg;
@@ -5512,7 +5516,7 @@ void Executor::run(ExecutionState &state) {
   objectManager.subscribe(searcher.get());
 
   // summary->loadAllFromDB();
-  objectManager.loadAllFromDB();
+  // objectManager.loadAllFromDB();
 
   while (!haltExecution) {
     auto action = searcher->selectAction();

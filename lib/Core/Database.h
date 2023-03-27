@@ -42,6 +42,27 @@ public:
     }
   };
 
+  struct DBState {
+    int state_id;
+    std::string initLocation;
+    std::string currLocation;
+    std::string path;
+    std::string pathCondition;
+    std::string choiceBranch;
+    int countInstructions;
+    int isIsolated;
+    int terminated; 
+  };
+
+struct DBPob {
+    int pob_id;
+    int root_id;
+    int parent_id;
+    std::string location;
+    std::string path;
+    std::string pathCondition;
+  };
+
   int64_t array_write(const Array *a);
   int64_t expr_write(ref<Expr> e);
   int64_t lemma_write(const Path &path);
@@ -53,6 +74,8 @@ public:
   void state_write(const ConvertState &state);
   void propagation_write(const ExecutionState *state, const ProofObligation *pob);
   void pob_write(const ProofObligation *pob);
+  void pobChild_write(const ProofObligation *pob); //private
+  void propagationCount_write(const ProofObligation *pob); //private
 
   std::string array_retrieve(int64_t id);
   std::string expr_retrieve(int64_t id);
@@ -63,6 +86,8 @@ public:
   std::map<uint64_t, DBLemma> lemmas_retrieve();
   std::map<std::string, size_t> functionhash_retrieve();
   std::set<std::pair<uint64_t, uint64_t>> parents_retrieve();
+  std::vector<DBState> states_retrieve();
+  std::vector<DBPob> pobs_retrieve();
 
   void lemma_delete(uint64_t);
   void hash_delete(std::string);

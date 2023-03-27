@@ -886,6 +886,39 @@ std::string KBlock::getLabel() const {
   return label_stream.str();
 }
 
+std::string KBlock::toString() const {
+  std::string res = "";
+  // values += pob->location->parent->function->getName();
+  // values += ": " + pob->location->getLabel() + "', ";
+  res += parent->function->getName();
+  res += ": ";
+  res += getLabel();
+  return res;
+}
+
+std::pair<KFunction *, KBlock *> klee::parseBlock(std::string str, KModule *m, const std::map<std::string, size_t> &DBHashMap) {
+  size_t index = 0;
+  std::string functionName;
+  std::string label;
+  KBlock *location;
+  while (true) {
+    if (index == str.size())
+      break;
+    while (str[index] != ':') {
+      functionName += str[index];
+      ++index;
+    }
+    index += 2;
+    while (index < str.size()) {
+      label += str[index];
+      ++index;
+    }
+  }
+  auto result = std::make_pair(m->functionNameMap[functionName], m->functionNameMap[functionName]->labelMap[label]);
+  // location = m->functionNameMap[functionName]->labelMap[label];
+  return result;
+}
+
 KCallBlock::KCallBlock(KFunction *_kfunction, llvm::BasicBlock *block, KModule *km,
                     std::map<Instruction*, unsigned> &registerMap, std::map<unsigned, KInstruction*> &reg2inst,
                     llvm::Function *_calledFunction, KInstruction **instructionsKF)

@@ -22,32 +22,79 @@ llvm::cl::opt<bool> DebugSummary(
 #endif
 
 ConvertState::ConvertState(const ExecutionState *state, bool isTerminated) {
-  state_id = std::to_string(state->getID());
-  il = "'" + state->initPC->parent->getLabel() + "'";
-  cl = "'" + state->pc->parent->getLabel() + "'";
-  path = "'" + state->path.toString() + "'";
-  pc = "'" + state->printConstraints() + "'";
-  cb = "'" + state->executionPath + "'";
-  ci = std::to_string(state->steppedInstructions);
-  if (state->isIsolated()) {
-    isIsolated = "'true'";
-  } else {
-    isIsolated = "'false'";
-  }
-  if(isTerminated) {
-    terminated = "'true'";
-  } else {
-    terminated = "'false'";
-  }
+  // state_id = std::to_string(state->getID());
+  state_id = state->getID();
+  // il = "'" + state->initPC->parent->getLabel() + "'";
+  initPC = state->initPC;
+  // cl = "'" + state->pc->parent->getLabel() + "'";
+  currPC = state->pc;
+  // path = "'" + state->path.toString() + "'";
+  path = state->path;
+  // pc = "'" + state->printConstraints() + "'";
+  constraintInfos = state->constraintInfos;
+  choiceBranch = state->executionPath;
+  // ci = std::to_string(state->steppedInstructions);
+  countInstr = state->steppedInstructions;
+  isIsolated = state->isIsolated();
+  terminated = isTerminated;
 }
 
 std::string ConvertState::getValues() const {
+  std::string strConstr = "";
+  for (auto i : constraintInfos) {
+    strConstr += i->toString();
+    strConstr += " ";
+  }
+
+
+  std::string strIsIsolated;
+  if (isIsolated)
+    strIsIsolated = "1";
+  else 
+    strIsIsolated = "0";
+
+  std::string strTerminated;
+  if (terminated)
+    strTerminated = "1";
+  else 
+    strTerminated = "0";
+  
   std::string values;
-  values = "(" + state_id + ", " + il + ", " + cl + ", " + path + ", " + pc + ", " + cb + ", " + ci + ", " + isIsolated + ", " + terminated + ")";
-   
+  // values = "(" + state_id + ", " + il + ", " + cl + ", " + path + ", " + pc + ", " + cb + ", " + ci + ", " + isIsolated + ", " + terminated + ")";
+  values = "(" + std::to_string(state_id) + ", " +
+           "'" + initPC->parent->getLabel() + "', " +
+           "'" + currPC->parent->getLabel() + "', " +
+           "'" + path.toString() + "', " +
+           "'" + strConstr + "', " +
+           "'" + choiceBranch + "', " +
+           std::to_string(countInstr) + ", " + 
+           strIsIsolated + ", " + strTerminated + ")";
+
   return values;
 }
 
+void ConvertState::setValues(Database::DBState state, KModule *module, std::map<std::string, size_t> DBHashMap) {
+  state_id = state.state_id;
+
+  ref<Path> _path = parse(state.path, module, DBHashMap);
+  path = *_path;
+  initLocation = parseBlock(state.initLocation, module, DBHashMap);
+
+  choiceBranch = state.choiceBranch;
+  countInstr = state.countInstructions;
+
+  if (state.isIsolated == 1) {
+    isIsolated = true;
+  } else {
+    isIsolated = false;
+  }
+
+  if (state.terminated == 1) {
+    terminated = true;
+  } else {
+    terminated = false;
+  }
+}
 ObjectManager::ObjectManager() {}
 
 void ObjectManager::subscribe(Subscriber *s) {
@@ -140,6 +187,11 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
+  std::set<KFunction *> functions = newPob->path.getFunctionsInPath();
+  for (auto f : functions) {
+    db->functionhash_write(std::string(f->function->getName()),
+                                module->functionHash(f));
+  }
   db->pob_write(newPob);
 }
 
@@ -461,6 +513,11 @@ void ObjectManager::summarize(const ProofObligation *pob,
 }
 
 void ObjectManager::saveState(const ExecutionState *state, bool isTerminated) {
+  std::set<KFunction *> functions = state->path.getFunctionsInPath();
+  for (auto f : functions) {
+    db->functionhash_write(std::string(f->function->getName()),
+                                module->functionHash(f));
+  }
   ConvertState cs(state, isTerminated);
   statesDB.push_back(cs);
 }
@@ -606,10 +663,10 @@ void ObjectManager::makeExprs(const std::map<uint64_t, std::string> &exprs) {
 }
 
 void ObjectManager::loadLemmas() {
-  ExprBuilder *builder = createDefaultExprBuilder();
-  parser = expr::Parser::Create("DBParser", 
-                                llvm::MemoryBuffer::getMemBuffer("").get(),
-                                builder, arrayCache, false);
+  // ExprBuilder *builder = createDefaultExprBuilder();
+  // parser = expr::Parser::Create("DBParser", 
+  //                               llvm::MemoryBuffer::getMemBuffer("").get(),
+  //                               builder, arrayCache, false);
 
 
   auto arrays = db->arrays_retrieve();
@@ -655,8 +712,8 @@ void ObjectManager::loadLemmas() {
   db->exprs_purge();
   db->arrays_purge();
 
-  delete parser; // remove to end of storeAllToDB;
-  delete builder;
+  // delete parser; // remove to end of storeAllToDB;
+  // delete builder;
 }
 
 void ObjectManager::storeStates() {
@@ -672,11 +729,66 @@ void ObjectManager::storeAllToDB() {
   DBReady = false;
 }
 
-void ObjectManager::loadAllFromDB() {
+
+
+void ObjectManager::loadStates(ExecutionState *startState) {
+  auto DBStates = db->states_retrieve();
+  auto DBHashMap = db->functionhash_retrieve();
+  for (auto _state : DBStates) {
+    // ConvertState state;
+    // state.setValues(_state, module, DBHashMap);
+    auto initLocation = parseBlock(_state.initLocation, module, DBHashMap);
+    ExecutionState *newState = new ExecutionState(initLocation.first, initLocation.second);
+    newState->path = *parse(_state.path, module, DBHashMap);
+    newState->executionPath = _state.choiceBranch;
+    newState->steppedInstructions = _state.countInstructions;
+    if (_state.isIsolated == 1)
+      newState->isolated = true;
+    newState->id = _state.state_id;
+    addedStates.push_back(newState);
+    // statesDB.push_back(state);
+  }
+}
+
+void ObjectManager::loadPobs() {
+  auto DBPobs = db->pobs_retrieve();
+  auto DBHashMap = db->functionhash_retrieve();
+
+  std::vector<ProofObligation *> pobs;
+
+  for (auto pob : DBPobs) {
+    ProofObligation *newPob;
+    int id = pob.pob_id;
+
+    ref<Path> path = parse(pob.path, module, DBHashMap);
+    newPob->path = *path;
+
+    KBlock *location = parseBlock(pob.location, module, DBHashMap).second;
+    newPob->location = location;
+    pobs.push_back(newPob);
+  }
+
+  // for (auto pob : pobs) {
+  //   setRoot;
+  //   setparent
+  //   setChildren
+  // }
+}
+
+void ObjectManager::loadAllFromDB(ExecutionState *startState) {
+  builder = createDefaultExprBuilder();
+  parser = expr::Parser::Create("DBParser", 
+                                llvm::MemoryBuffer::getMemBuffer("").get(),
+                                builder, arrayCache, false);
+
   // load all objects from DB
+  loadPobs();
   loadLemmas();
+  // loadStates(startState);
 
   DBReady = true;
+  delete parser;
+  delete builder;
 }
 
 

@@ -7,6 +7,7 @@
 #include "Subscriber.h"
 #include "Database.h"
 #include "klee/Expr/Expr.h"
+#include "klee/Expr/Constraints.h"
 #include "klee/Expr/ExprHashMap.h"
 #include "klee/Expr/Parser/Parser.h"
 #include "klee/Module/KModule.h"
@@ -31,19 +32,24 @@ struct Lemma {
 
 struct ConvertState {
 
+  std::pair<KFunction *, KBlock *> getInitPC() {return initLocation; }
   std::string getValues() const;
+  void setValues(Database::DBState state, KModule *module, std::map<std::string, size_t> DBHashMap);
+  ConvertState();
   ConvertState(const ExecutionState *state, bool isTerminated);
 
 private: 
-  std::string state_id; 
-  std::string il;
-  std::string cl;
-  std::string path;
-  std::string pc;
-  std::string cb;
-  std::string ci; 
-  std::string isIsolated;
-  std::string terminated;
+  std::pair<KFunction *, KBlock *> initLocation;
+
+  std::uint32_t state_id;
+  KInstIterator initPC; // std::string il;
+  KInstIterator currPC; // std::string cl;
+  Path path;// std::string path;
+  Constraints constraintInfos;// std::string pc;
+  std::string choiceBranch;
+  std::uint64_t countInstr; // std::string countInstr; 
+  bool isIsolated;
+  bool terminated;
 };
 
 class ObjectManager {
@@ -92,6 +98,7 @@ private:
   // 7. Database;
   bool DBReady = false;
   Database *db;
+  ExprBuilder *builder;
   expr::Parser *parser;
   ArrayCache *arrayCache;
   KModule *module;
@@ -156,7 +163,7 @@ public:
                  const ExprHashMap<ref<Expr>> &rebuildMap);
   void saveState(const ExecutionState *state, bool isTerminated);                 
   void storeAllToDB();               
-  void loadAllFromDB();
+  void loadAllFromDB(ExecutionState *startState);
   void makeArray(const std::map<uint64_t, std::string> &arrays, uint64_t id);
   void makeExprs(const std::map<uint64_t, std::string> &exprs);
   
@@ -178,8 +185,8 @@ private:
   void storeStates();
   // void storePropagations();
   void storeLemmas();
-  // void loadPobs();
-  // void loadStates();
+  void loadPobs();
+  void loadStates(ExecutionState *startState);
   // void loadPropagations();
   void loadLemmas();
 };
