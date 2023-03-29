@@ -36,6 +36,7 @@ std::string ProofObligation::print() const {
   return ret;
 }
 
+
 ProofObligation *propagateToReturn(ProofObligation *pob,
                                    KInstruction *callSite,
                                    KBlock *returnBlock) {

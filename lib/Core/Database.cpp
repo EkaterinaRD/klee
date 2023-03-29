@@ -92,12 +92,49 @@ void Database::create_schema() {
                "hash TEXT,"
                "UNIQUE(function, hash))";
   finalize(sql_create, st);
+  sql_create = "CREATE TABLE pobs"
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "root INTEGER,"
+               "parent INTEGER,"
+               "location TEXT,"
+               "path TEXT"
+               ")";
+  finalize(sql_create, st);
+  // Constraints condition;
+  sql_create = "CREATE TABLE pobsConstr"
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "pob_id INTEGER REFERENCES pobs(id) ON DELETE CASCADE,"
+               "expr_id INTEGER REFERENCES expr(id) ON DELETE CASCADE,"
+               "UNIQUE(pob_id, expr_id))";
+  finalize(sql_create, st);
+  // unordered_set<ProofObligation *> children;
+  sql_create = "CREATE TABLE pobsChildren "
+               "(pob_id INTEGER,"
+               "child_id INTEGER"
+              //  "UNIQUE(pob_id, child_id)"
+               ")";
+  finalize(sql_create, st);
+  // vector<KInstruction *> stack;
+  sql_create = "CREATE TABLE pobsStack "
+               "(pob_id INTEGER,"
+               "numOfInstr INTEGER,"
+               "instr INTEGER"
+               ")";
+  finalize(sql_create, st);
+  // // map<ExecutionState *, unsigned> propagationCount;
+  // sql_create =  "CREATE TABLE propagationCount "
+  //               "(pob_id INTEGER,"
+  //               "state_id INTEGER,"
+  //               "count INTEGER"
+  //               ")";
+  // finalize(sql_create, st);                
 }
 
 void Database::drop_schema() {
   sqlite3_stmt *st = nullptr;
   char const *sql_drop = "DROP TABLE IF EXISTS summary, array, expr,"
-                         "constr, arraymap, parent, functionhash";
+                         "constr, arraymap, parent, functionhash,"
+                         "pobs, pobsConstr, pobsChildren, pobsStack, propagationCount";
   finalize(sql_drop, st);
 }
 
@@ -164,6 +201,63 @@ void Database::constraint_write(int64_t expr, int64_t summary) {
                     ");";
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
+  }
+}
+
+void Database::pob_write(ProofObligation *pob) {
+  
+  std::string sql;
+  std::string values;
+  std::string pob_id = std::to_string(pob->id);
+
+  std::string parent_id;
+  if (pob->parent) {
+    parent_id = std::to_string(pob->parent->id) + ", ";
+    sql = "INSERT INTO pobsChildren (pob_id, child_id) "
+                  "VALUES (" + parent_id  + pob_id + ");";
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+      exit(1);
+    }
+  } else {
+    parent_id = "NULL, ";
+  }
+
+  values = pob_id + ", " + std::to_string(pob->root->id) + ", " + parent_id;
+//   values += "'" + pob->location->toStringLocation() + "', ";
+  values += "'" + pob->location->getLabel() + "', "; 
+  values += "'" + pob->path.toString() + "'";
+
+  sql = "INSERT OR REPLACE INTO pobs "
+                    "(id, root, parent, location, path)"
+                    "VALUES (" + values + ")";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+
+  for (auto i : pob->condition) {
+    int64_t expr_id = expr_write(i);
+    sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id)"
+                    "VALUES (" +
+                    pob_id + ", " + std::to_string(expr_id) +
+                    ");";
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+      exit(1);
+    }
+  }
+
+  size_t index = 0;
+  for (auto instr : pob->stack) {
+    std::string str_instr = instr->toString();
+    auto instrNum = instr->parent->parent->inst2reg[instr];
+    sql = "INSERT INTO pobsStack (pob_id, numOfInstr, instr) "
+          "VALUES (" + 
+          pob_id + ", " + std::to_string(index) + ", " +
+          // "'" + str_instr + "'" 
+          std::to_string(instrNum) + ")";
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+      exit(1);
+    }
+    index++;
   }
 }
 

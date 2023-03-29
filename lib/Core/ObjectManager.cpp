@@ -111,6 +111,7 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
+  db->pob_write(newPob);
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {

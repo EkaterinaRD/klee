@@ -87,6 +87,7 @@ namespace klee {
     KInstruction * getLastInstruction() const noexcept { return instructions[numInstructions - 1]; }
     std::string getIRLocation() const;
     std::string getLabel() const;
+    // std::string toStringLocation() const;
   };
 
   struct KFunction {
@@ -96,6 +97,7 @@ namespace klee {
     unsigned numArgs, numRegisters;
 
     std::map<unsigned, KInstruction *> reg2inst;
+    std::map<KInstruction *, unsigned> inst2reg;
     unsigned numInstructions;
     unsigned numBlocks;
     KInstruction **instructions;

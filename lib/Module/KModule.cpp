@@ -702,6 +702,9 @@ KFunction::KFunction(llvm::Function *_function,
     for (unsigned i = 0; i < kb->numInstructions; i++, n++) {
       instructionMap[instructions[n]->inst] = instructions[n];
     }
+    for (auto kinstr : reg2inst) {
+      inst2reg[kinstr.second] = kinstr.first;
+    }
     blockMap[&*bbit] = kb;
     blocks.push_back(std::unique_ptr<KBlock>(kb));
     labelMap[kb->getLabel()] = kb;

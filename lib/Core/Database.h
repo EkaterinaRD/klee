@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Path.h"
+#include "ProofObligation.h"
 #include "klee/Expr/Expr.h"
 
 namespace klee {
@@ -46,6 +47,7 @@ public:
   void parent_write(int64_t child, int64_t parent);
   void constraint_write(int64_t expr, int64_t summary);
   void arraymap_write(int64_t array, int64_t expr);
+  void pob_write(ProofObligation *pob);
 
   std::string array_retrieve(int64_t id);
   std::string expr_retrieve(int64_t id);
