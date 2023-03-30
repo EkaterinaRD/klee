@@ -87,7 +87,7 @@ namespace klee {
     KInstruction * getLastInstruction() const noexcept { return instructions[numInstructions - 1]; }
     std::string getIRLocation() const;
     std::string getLabel() const;
-    // std::string toStringLocation() const;
+    std::string toStringLocation() const;
   };
 
   struct KFunction {

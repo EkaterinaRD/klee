@@ -889,6 +889,14 @@ std::string KBlock::getLabel() const {
   return label_stream.str();
 }
 
+std::string KBlock::toStringLocation() const {
+  std::string res;
+  res += parent->function->getName();
+  res += ": ";
+  res += getLabel();
+  return res;
+}
+
 KCallBlock::KCallBlock(KFunction *_kfunction, llvm::BasicBlock *block, KModule *km,
                     std::map<Instruction*, unsigned> &registerMap, std::map<unsigned, KInstruction*> &reg2inst,
                     llvm::Function *_calledFunction, KInstruction **instructionsKF)

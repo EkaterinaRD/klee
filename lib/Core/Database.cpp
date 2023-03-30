@@ -223,8 +223,7 @@ void Database::pob_write(ProofObligation *pob) {
   }
 
   values = pob_id + ", " + std::to_string(pob->root->id) + ", " + parent_id;
-//   values += "'" + pob->location->toStringLocation() + "', ";
-  values += "'" + pob->location->getLabel() + "', "; 
+  values += "'" + pob->location->toStringLocation() + "', ";
   values += "'" + pob->path.toString() + "'";
 
   sql = "INSERT OR REPLACE INTO pobs "
