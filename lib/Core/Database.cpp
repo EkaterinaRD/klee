@@ -92,6 +92,11 @@ void Database::create_schema() {
                "hash TEXT,"
                "UNIQUE(function, hash))";
   finalize(sql_create, st);
+  sql_create = "CREATE TABLE maxID"
+               "(maxIdState INTEGER,"
+               "maxIdPob INTEGER"
+               ")";
+  finalize(sql_create, st);
   sql_create = "CREATE TABLE pobs"
                "(id INTEGER NOT NULL PRIMARY KEY,"
                "root INTEGER,"
@@ -211,15 +216,15 @@ void Database::pob_write(ProofObligation *pob) {
   std::string pob_id = std::to_string(pob->id);
 
   std::string parent_id;
-  if (pob->parent) {
+  if (pob->isOriginPob()) {
+    parent_id = "NULL, ";
+  } else {
     parent_id = std::to_string(pob->parent->id) + ", ";
     sql = "INSERT INTO pobsChildren (pob_id, child_id) "
                   "VALUES (" + parent_id  + pob_id + ");";
     if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
       exit(1);
     }
-  } else {
-    parent_id = "NULL, ";
   }
 
   values = pob_id + ", " + std::to_string(pob->root->id) + ", " + parent_id;
@@ -260,6 +265,15 @@ void Database::pob_write(ProofObligation *pob) {
   }
 }
 
+
+void Database::maxId_write(std::uint32_t maxIdState, unsigned maxIdPob) {
+  std::string sql = "INSERT INTO maxID (maxIdState, maxIdPob) " 
+                    "VALUES (" + std::to_string(maxIdState) + ", "
+                               + std::to_string(maxIdPob) + ");";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
 
 void Database::arraymap_write(int64_t array, int64_t expr) {
   std::string sql = "INSERT OR IGNORE INTO arraymap (array_id, expr_id)"

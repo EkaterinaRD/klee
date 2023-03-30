@@ -79,6 +79,8 @@ private:
   ArrayCache *arrayCache;
   KModule *module;
   llvm::raw_fd_ostream *summaryFile;
+  unsigned maxIdPob = 0;
+  std::uint32_t maxIdState = 0;
   // 7.1 Lemmas
   std::map<const Lemma *, int64_t> lemmaDBMap;
   // 7.2 Expressions
@@ -148,6 +150,7 @@ private:
   void addStateToPob(ExecutionState *state);
   void addPobToState(ProofObligation *pob);
   void createPropagations();
+  void setMaxIdState(std::uint32_t newMaxId);
 
   bool checkStack(ExecutionState * state, ProofObligation *pob);
 

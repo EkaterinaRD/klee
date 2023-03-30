@@ -112,6 +112,9 @@ void ObjectManager::setResult() {
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
   db->pob_write(newPob);
+  if (newPob->id > maxIdPob) {
+    maxIdPob = newPob->id;
+  }
 }
 
 void ObjectManager::removePob(ProofObligation *pob) {
@@ -152,14 +155,22 @@ void ObjectManager::setTargetedConflict(ref<TargetedConflict> tc) {
   targetedConflict = tc;
 }
 
+void ObjectManager::setMaxIdState(std::uint32_t newMaxId) {
+  if (newMaxId > maxIdState) {
+    maxIdState = newMaxId;
+  }
+}
+
 void ObjectManager::addState(ExecutionState *state) {
   addedStates.push_back(state);
+  setMaxIdState(state->getID());
 }
 
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
  
   addedStates.push_back(newState);
+  setMaxIdState(state->getID());
 
   return newState;
 } 
@@ -613,6 +624,7 @@ void ObjectManager::loadLemmas() {
 
 void ObjectManager::storeAllToDB() {
   // write all objects to DB
+  db->maxId_write(maxIdState, maxIdPob);
   storeLemmas();
 }
 

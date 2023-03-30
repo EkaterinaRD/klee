@@ -48,6 +48,7 @@ public:
   void constraint_write(int64_t expr, int64_t summary);
   void arraymap_write(int64_t array, int64_t expr);
   void pob_write(ProofObligation *pob);
+  void maxId_write(std::uint32_t maxIdState, unsigned maxIdPob);
 
   std::string array_retrieve(int64_t id);
   std::string expr_retrieve(int64_t id);
