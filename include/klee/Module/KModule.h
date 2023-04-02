@@ -90,6 +90,9 @@ namespace klee {
     std::string toStringLocation() const;
   };
 
+  KBlock *parseLocation(std::string str, KModule *m,
+                          const std::map<std::string, size_t> &DBHashMap);
+
   struct KFunction {
     KModule *parent;
     llvm::Function *function;

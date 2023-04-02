@@ -111,7 +111,8 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
-  db->pob_write(newPob);
+  // db->pob_write(newPob);
+  storePob(newPob);
   if (newPob->id > maxIdPob) {
     maxIdPob = newPob->id;
   }
@@ -495,6 +496,21 @@ bool ObjectManager::checkStack(ExecutionState *state, ProofObligation *pob) {
   return true;
 }
 
+void ObjectManager::storePob(ProofObligation *pob) {
+  std::set<KFunction *> functions = pob->path.getFunctionsInPath();
+  for (auto f : functions) {
+    db->functionhash_write(std::string(f->function->getName()), module->functionHash(f));
+  }
+  db->pob_write(pob);
+  for (auto e : pob->condition) {
+    if (!exprDBMap.count(e))
+      exprDBMap[e] = db->expr_write(e);
+    assert(exprDBMap.count(e) && "No expr in DB");
+    db->pobsConstr_write(pob->id, exprDBMap[e]);
+    storeArray(e);
+  }
+}
+
 void ObjectManager::storeLemmas() {
   
   for (auto lemma : lemmas) {
@@ -517,28 +533,53 @@ void ObjectManager::storeLemmas() {
         assert(exprDBMap.count(constraint) && "No expr in DB");
         db->constraint_write(idConstr, idLemma);
 
-        std::vector<const Array *> arrays;
-        klee::findSymbolicObjects(constraint, arrays);
-        for (auto array : arrays) {
-          if (!arrayDBMap.count(array))
-            arrayDBMap[array] = db->array_write(array);
-          uint64_t idArray = arrayDBMap[array];
-          assert(exprDBMap.count(constraint) && "No expr in DB");
-          assert(arrayDBMap.count(array) && "No array in DB");
-          db->arraymap_write(idArray, idConstr);
-        }
-        for (auto array : arrays) {
-          assert(arrayDBMap.count(array) && "No child in DB");
-          uint64_t idChild = arrayDBMap.count(array);
-          for (auto parent : array->parents) {
-            assert(arrayDBMap.count(parent) && "No parent in DB");
-            uint64_t idParent = arrayDBMap.count(parent);
-            db->parent_write(idChild, idParent);
-          }
-        }
+        // std::vector<const Array *> arrays;
+        // klee::findSymbolicObjects(constraint, arrays);
+        // for (auto array : arrays) {
+        //   if (!arrayDBMap.count(array))
+        //     arrayDBMap[array] = db->array_write(array);
+        //   uint64_t idArray = arrayDBMap[array];
+        //   assert(exprDBMap.count(constraint) && "No expr in DB");
+        //   assert(arrayDBMap.count(array) && "No array in DB");
+        //   db->arraymap_write(idArray, idConstr);
+        // }
+        // for (auto array : arrays) {
+        //   assert(arrayDBMap.count(array) && "No child in DB");
+        //   uint64_t idChild = arrayDBMap.count(array);
+        //   for (auto parent : array->parents) {
+        //     assert(arrayDBMap.count(parent) && "No parent in DB");
+        //     uint64_t idParent = arrayDBMap.count(parent);
+        //     db->parent_write(idChild, idParent);
+        //   }
+        // }
+
+        storeArray(constraint);
 
 
       }
+    }
+  }
+}
+
+void ObjectManager::storeArray(ref<Expr> e) {
+  uint64_t idConstr = exprDBMap[e];
+  std::vector<const Array *> arrays;
+  klee::findSymbolicObjects(e, arrays);
+  for (auto array : arrays) {
+    if (!arrayDBMap.count(array))
+      arrayDBMap[array] = db->array_write(array);
+    uint64_t idArray = arrayDBMap[array];
+    assert(exprDBMap.count(e) && "No expr in DB");
+    assert(arrayDBMap.count(array) && "No array in DB");
+    db->arraymap_write(idArray, idConstr);
+  }
+  for (auto array : arrays) {
+    assert(arrayDBMap.count(array) && "No child in DB");
+    uint64_t idChild = arrayDBMap.count(array);
+    for (auto parent : array->parents) {
+      assert(arrayDBMap.count(parent) && "No parent in DB");
+      uint64_t idParent = arrayDBMap.count(parent);
+      db->parent_write(idChild, idParent);
     }
   }
 }
@@ -569,26 +610,26 @@ void ObjectManager::makeExprs(const std::map<uint64_t, std::string> &exprs) {
 }
 
 void ObjectManager::loadLemmas() {
-  ExprBuilder *builder = createDefaultExprBuilder();
-  parser = expr::Parser::Create("DBParser", 
-                                llvm::MemoryBuffer::getMemBuffer("").get(),
-                                builder, arrayCache, false);
+  // builder = createDefaultExprBuilder();
+  // parser = expr::Parser::Create("DBParser", 
+  //                               llvm::MemoryBuffer::getMemBuffer("").get(),
+  //                               builder, arrayCache, false);
 
 
-  auto arrays = db->arrays_retrieve();
-  auto parents = db->parents_retrieve();
-  for (const auto &parent : parents) {
-    arrayParentMap[parent.first].insert(parent.second);
-  }
-  for (const auto &array : arrays) {
-    makeArray(arrays, array.first);
-  }
+  // auto arrays = db->arrays_retrieve();
+  // auto parents = db->parents_retrieve();
+  // for (const auto &parent : parents) {
+  //   arrayParentMap[parent.first].insert(parent.second);
+  // }
+  // for (const auto &array : arrays) {
+  //   makeArray(arrays, array.first);
+  // }
 
-  auto exprs = db->exprs_retrieve();
-  makeExprs(exprs);
+  // auto exprs = db->exprs_retrieve();
+  // makeExprs(exprs);
 
   auto DBLemmas = db->lemmas_retrieve();
-  auto DBHashMap = db->functionhash_retrieve();
+  // auto DBHashMap = db->functionhash_retrieve();
   for (const auto &lemma : DBLemmas) {
     ref<Path> path = parse(lemma.second.path, module, DBHashMap);
     if (!path) {
@@ -618,8 +659,17 @@ void ObjectManager::loadLemmas() {
   db->exprs_purge();
   db->arrays_purge();
 
-  delete parser;
-  delete builder;
+  // delete parser;
+  // delete builder;
+}
+
+void ObjectManager::loadPobs() {
+  auto DBPob = db->pobs_retrieve();
+  for (auto pob : DBPob) {
+    ProofObligation *newPob = new ProofObligation(pob.first);
+    newPob->setCounter(maxIdPob);
+    newPob->location = parseLocation(pob.second.location, module, DBHashMap);
+  }
 }
 
 void ObjectManager::storeAllToDB() {
@@ -629,8 +679,36 @@ void ObjectManager::storeAllToDB() {
 }
 
 void ObjectManager::loadAllFromDB() {
+  builder = createDefaultExprBuilder();
+  parser = expr::Parser::Create("DBParser", 
+                                llvm::MemoryBuffer::getMemBuffer("").get(),
+                                builder, arrayCache, false);
+
+  DBHashMap = db->functionhash_retrieve();
+  auto maxId = db->maxId_retrieve();
+  maxIdState = maxId.first;
+  maxIdPob = maxId.second;
+
+  auto arrays = db->arrays_retrieve();
+  auto parents = db->parents_retrieve();
+  for (const auto &parent : parents) {
+    arrayParentMap[parent.first].insert(parent.second);
+  }
+  for (const auto &array : arrays) {
+    makeArray(arrays, array.first);
+  }
+
+  auto exprs = db->exprs_retrieve();
+  makeExprs(exprs);
+
+  // llvm::errs() << maxIdState << ", " << maxIdPob << "\n";
+  // exit(1); 
   // load all objects from DB
   loadLemmas();
+  loadPobs();
+
+  delete parser;
+  delete builder;
 }
 
 

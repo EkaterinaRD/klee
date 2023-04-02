@@ -123,7 +123,7 @@ void Database::create_schema() {
   sql_create = "CREATE TABLE pobsStack "
                "(pob_id INTEGER,"
                "numOfInstr INTEGER,"
-               "instr INTEGER"
+               "instr TEXT"
                ")";
   finalize(sql_create, st);
   // // map<ExecutionState *, unsigned> propagationCount;
@@ -238,26 +238,29 @@ void Database::pob_write(ProofObligation *pob) {
     exit(1);
   }
 
-  for (auto i : pob->condition) {
-    int64_t expr_id = expr_write(i);
-    sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id)"
-                    "VALUES (" +
-                    pob_id + ", " + std::to_string(expr_id) +
-                    ");";
-    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
-      exit(1);
-    }
-  }
+  // for (auto i : pob->condition) {
+  //   int64_t expr_id = expr_write(i);
+  //   sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id)"
+  //                   "VALUES (" +
+  //                   pob_id + ", " + std::to_string(expr_id) +
+  //                   ");";
+  //   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+  //     exit(1);
+  //   }
+  // }
 
   size_t index = 0;
   for (auto instr : pob->stack) {
-    std::string str_instr = instr->toString();
+    std::string str_instr = instr->parent->parent->function->getName().str();
+    str_instr += " ";
     auto instrNum = instr->parent->parent->inst2reg[instr];
+    str_instr += std::to_string(instrNum);
     sql = "INSERT INTO pobsStack (pob_id, numOfInstr, instr) "
           "VALUES (" + 
           pob_id + ", " + std::to_string(index) + ", " +
-          // "'" + str_instr + "'" 
-          std::to_string(instrNum) + ")";
+          "'" + str_instr + "'" +
+          // std::to_string(instrNum) + 
+          ")";
     if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
       exit(1);
     }
@@ -265,6 +268,13 @@ void Database::pob_write(ProofObligation *pob) {
   }
 }
 
+void Database::pobsConstr_write(unsigned pob_id, uint64_t expr_id) {
+  std::string sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id) "
+                    "VALUES (" + std::to_string(pob_id) + ", " + std::to_string(expr_id) +")";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
 
 void Database::maxId_write(std::uint32_t maxIdState, unsigned maxIdPob) {
   std::string sql = "INSERT INTO maxID (maxIdState, maxIdPob) " 
@@ -468,6 +478,155 @@ std::map<uint64_t, std::string> Database::exprs_retrieve() {
     exit(1);
   return exprs;
 }
+
+std::pair<std::uint32_t, unsigned> Database::maxId_retrieve() {
+  std::pair<std::uint32_t, unsigned> result;
+
+  sqlite3_stmt *st;
+  std::string sql = "SELECT maxIDState, maxIDPob FROM maxID";
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW: {
+      result = std::make_pair(sqlite3_column_int(st, 0), sqlite3_column_int(st, 1));
+      break;
+    }
+    case SQLITE_DONE: {
+      done = true;
+      break;
+    }
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+  return result;
+}
+
+std::map<unsigned, Database::DBPob> Database::pobs_retrieve() {
+  std::map<unsigned, Database::DBPob> result;
+  std::string sql = "SELECT id, root, parent, location, path FROM pobs";
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW: {
+      // auto root_id = sqlite3_column_int(st, 1);
+      DBPob pob;
+      pob.root_id = sqlite3_column_int(st, 1);
+      pob.parent_id = sqlite3_column_int(st, 2);
+      pob.location = *sqlite3_column_text(st, 3);
+      pob.path = *sqlite3_column_text(st, 4);
+      result.insert(std::make_pair(sqlite3_column_int(st, 0), pob));
+      break;
+    }
+    case SQLITE_DONE: {
+      done = true;
+      break;
+    }
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+  for (auto &pob : result) {
+    auto exprs_id = pobConstr_retrieve(std::to_string(pob.first));
+    for (auto id : exprs_id) {
+      pob.second.exprs.push_back(id);
+    }
+
+    auto children_id = pobChildren_retrieve(std::to_string(pob.first));
+    for (auto id : children_id) {
+      pob.second.children.push_back(id);
+    }
+
+    auto stack = pobStack_retrieve(std::to_string(pob.first));
+    for (auto instr : stack) {
+      pob.second.stack.insert(instr);
+    }
+  }
+  return result;
+}
+
+std::vector<uint64_t> Database::pobConstr_retrieve(std::string pob_id) {
+  std::vector<uint64_t> exprs_id;
+  std::string sql = "SELECT expr_id FROM pobsConstr WHERE pob_id = " + pob_id;
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)){
+    case SQLITE_ROW:
+      exprs_id.push_back(sqlite3_column_int(st, 0));
+      break;
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+  return exprs_id;
+}
+
+std::vector<unsigned> Database::pobChildren_retrieve(std::string pob_id) {
+  std::vector<unsigned> childre_id;
+  std::string sql = "SELECT child_id FROM pobsChildren WHERE pob_id = " + pob_id;
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)){
+    case SQLITE_ROW:
+      childre_id.push_back(sqlite3_column_int(st, 0));
+      break;
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+  return childre_id;
+}
+
+std::map<int64_t, std::string> Database::pobStack_retrieve(std::string pob_id) {
+  std::map<int64_t, std::string> stack;
+  std::string sql = "SELECT numOfInstr, instr FROM pobsStack WHERE pob_id = " + pob_id;
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)){
+    case SQLITE_ROW: {
+      std::string instr_str = std::string(
+          reinterpret_cast<const char *>(sqlite3_column_text(st, 1)));
+      stack.insert(std::make_pair(sqlite3_column_int(st, 0), instr_str));
+      break;
+    }
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+  return stack;
+}
+
 
 void Database::lemma_delete(uint64_t id) {
   std::string sql = "DELETE FROM lemma WHERE id = " + std::to_string(id);

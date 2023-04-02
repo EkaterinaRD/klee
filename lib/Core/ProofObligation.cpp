@@ -36,6 +36,9 @@ std::string ProofObligation::print() const {
   return ret;
 }
 
+void ProofObligation::setCounter(int maxIdPob) {
+  counter = maxIdPob;
+}
 
 ProofObligation *propagateToReturn(ProofObligation *pob,
                                    KInstruction *callSite,

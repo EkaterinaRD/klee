@@ -48,6 +48,8 @@ public:
     }
   }
 
+  ProofObligation(int _id) : id(_id) {}; 
+
   explicit ProofObligation(ProofObligation *pob)
       : id(counter++), parent(pob->parent), root(pob->root), stack(pob->stack),
         propagationCount(pob->propagationCount),
@@ -74,6 +76,7 @@ public:
   void detachParent();
   bool atReturn() const { return isa<KReturnBlock>(location); }
   std::string print() const;
+  void setCounter(int maxIdPob);
 };
 
 struct ProofObligationIDCompare {

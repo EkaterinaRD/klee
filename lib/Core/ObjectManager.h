@@ -76,11 +76,14 @@ private:
   // 7. Database;
   Database *db;
   expr::Parser *parser;
+  ExprBuilder *builder;
   ArrayCache *arrayCache;
   KModule *module;
   llvm::raw_fd_ostream *summaryFile;
   unsigned maxIdPob = 0;
   std::uint32_t maxIdState = 0;
+  std::map<std::string, size_t> DBHashMap;
+  enum class KindObject { Lemma, Pob};
   // 7.1 Lemmas
   std::map<const Lemma *, int64_t> lemmaDBMap;
   // 7.2 Expressions
@@ -90,6 +93,7 @@ private:
   std::map<const Array *, int64_t> arrayDBMap;
   std::map<uint64_t, std::set<uint64_t>> arrayParentMap;
   std::map<int64_t, const Array *> arrayReverseDBMap;
+  //7.4 Pobs
 
 public:
   ObjectManager();
@@ -157,11 +161,12 @@ private:
 
   ExecutionState *replayStateFromPob(ProofObligation *pob);
 
-  // void storePobs();
+  void storePob(ProofObligation *pob);
   // void storeStates();
   // void storePropagations();
   void storeLemmas();
-  // void loadPobs();
+  void storeArray(ref<Expr> e);
+  void loadPobs();
   // void loadStates();
   // void loadPropagations();
   void loadLemmas();

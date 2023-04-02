@@ -5509,7 +5509,10 @@ void Executor::run(ExecutionState &state) {
   objectManager.subscribe(searcher.get());
 
   // summary->loadAllFromDB();
-  objectManager.loadAllFromDB();
+  // objectManager.loadAllFromDB();
+  if (SummaryDB != "") {
+    objectManager.loadAllFromDB();
+  }
 
   while (!haltExecution) {
     auto action = searcher->selectAction();

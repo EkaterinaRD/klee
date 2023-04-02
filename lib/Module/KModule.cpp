@@ -897,6 +897,33 @@ std::string KBlock::toStringLocation() const {
   return res;
 }
 
+KBlock *klee::parseLocation(std::string str, KModule *m,
+                          const std::map<std::string, size_t> &DBHashMap) {
+  std::string functionName;
+  std::string label;
+  size_t index = 0;
+  while (str[index] != ':'){
+    functionName += str[index];
+    index++;
+  }
+  auto function = m->functionNameMap.at(functionName);
+  if (m->functionHash(function) != DBHashMap.at(functionName)) {
+    return nullptr;
+  }
+  while (str[index] != '%') {
+    index++;
+  }
+  if (str[index] == '%') {
+    while (index < str.size()) {
+      label += str[index];
+      index++;
+    }
+  }
+
+  return m->functionNameMap[functionName]->labelMap[label];
+}
+
+
 KCallBlock::KCallBlock(KFunction *_kfunction, llvm::BasicBlock *block, KModule *km,
                     std::map<Instruction*, unsigned> &registerMap, std::map<unsigned, KInstruction*> &reg2inst,
                     llvm::Function *_calledFunction, KInstruction **instructionsKF)
