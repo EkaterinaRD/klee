@@ -93,7 +93,9 @@ private:
   std::map<const Array *, int64_t> arrayDBMap;
   std::map<uint64_t, std::set<uint64_t>> arrayParentMap;
   std::map<int64_t, const Array *> arrayReverseDBMap;
-  //7.4 Pobs
+  //7.4 Instructions
+  // std::map<const KInstruction *, int64_t> instrDBMap;
+  // std::map<int64_t, const KInstruction *> arrayInstrDBMap;
 
 public:
   ObjectManager();

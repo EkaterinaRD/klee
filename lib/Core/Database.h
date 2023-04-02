@@ -46,6 +46,7 @@ public:
     std::string location;
     std::string path;
     std::vector<uint64_t> exprs;
+    std::vector<uint64_t> instr_expr;
     std::vector<unsigned> children;
     // std::vector<std::string> stack;
     std::map<int64_t, std::string> stack;

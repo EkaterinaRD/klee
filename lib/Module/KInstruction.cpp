@@ -59,3 +59,27 @@ std::string KInstruction::getIRLocation() const {
 bool KInstruction::isCallOrInvokeInst() {
   return inst->getOpcode() == llvm::Instruction::Call || inst->getOpcode() == llvm::Instruction::Invoke;
 }
+
+KInstruction *klee::parseInstruction(std::string str, KModule *m,
+                          const std::map<std::string, size_t> &DBHashMap) {
+  std::string functionName;
+  std::string strNumInstr;
+  size_t index = 0;
+  while (str[index] != ' ') {
+    functionName += str[index];
+    index++;
+  }
+  auto function = m->functionNameMap.at(functionName);
+  if (m->functionHash(function) != DBHashMap.at(functionName)) {
+    return nullptr;
+  }
+  index++;
+  while (index < str.size()) {
+    strNumInstr += str[index];
+    index++;
+  } 
+  auto numInstr = std::stoi(strNumInstr);
+
+  return function->reg2inst[numInstr];
+  
+}

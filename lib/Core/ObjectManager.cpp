@@ -506,6 +506,7 @@ void ObjectManager::storePob(ProofObligation *pob) {
     if (!exprDBMap.count(e))
       exprDBMap[e] = db->expr_write(e);
     assert(exprDBMap.count(e) && "No expr in DB");
+    // auto instr = pob->condition.getLocation(e);
     db->pobsConstr_write(pob->id, exprDBMap[e]);
     storeArray(e);
   }
@@ -575,10 +576,12 @@ void ObjectManager::storeArray(ref<Expr> e) {
   }
   for (auto array : arrays) {
     assert(arrayDBMap.count(array) && "No child in DB");
-    uint64_t idChild = arrayDBMap.count(array);
+    // uint64_t idChild = arrayDBMap.count(array);
+    uint64_t idChild = arrayDBMap[array];
     for (auto parent : array->parents) {
       assert(arrayDBMap.count(parent) && "No parent in DB");
-      uint64_t idParent = arrayDBMap.count(parent);
+      // uint64_t idParent = arrayDBMap.count(parent);
+      uint64_t idParent = arrayDBMap[parent];
       db->parent_write(idChild, idParent);
     }
   }
@@ -669,6 +672,16 @@ void ObjectManager::loadPobs() {
     ProofObligation *newPob = new ProofObligation(pob.first);
     newPob->setCounter(maxIdPob);
     newPob->location = parseLocation(pob.second.location, module, DBHashMap);
+    ref<Path> path = parse(pob.second.path, module, DBHashMap);
+    newPob->path = *path;
+    for (auto instr : pob.second.stack) {
+      auto instraction = parseInstruction(instr.second, module, DBHashMap);
+      newPob->stack.push_back(instraction);
+    }
+    // for (auto expr_id : pob.second.exprs) {
+    //   // l->constraints.insert(exprReverseDBMap[expr_id]);
+    //   newPob->condition.ins
+    // }
   }
 }
 

@@ -18,6 +18,7 @@
 #include "llvm/IR/Instruction.h"
 
 #include <vector>
+#include <map>
 
 namespace llvm {
   class Instruction;
@@ -71,6 +72,10 @@ namespace klee {
     KGEPInstruction() = default;
     explicit KGEPInstruction(const KGEPInstruction& ki);
   };
+
+KInstruction *parseInstruction(std::string str, KModule *m,
+                          const std::map<std::string, size_t> &DBHashMap);
 }
+
 
 #endif /* KLEE_KINSTRUCTION_H */

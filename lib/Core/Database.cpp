@@ -97,6 +97,12 @@ void Database::create_schema() {
                "maxIdPob INTEGER"
                ")";
   finalize(sql_create, st);
+  // // Instructions
+  // sql_create = "CREATE TABLE instrs "
+  //              "(id INTEGER NOT NULL PRIMARY KEY,"
+  //              "location TEXT"
+  //              ")";
+  // finalize(sql_create, st);
   sql_create = "CREATE TABLE pobs"
                "(id INTEGER NOT NULL PRIMARY KEY,"
                "root INTEGER,"
@@ -109,8 +115,10 @@ void Database::create_schema() {
   sql_create = "CREATE TABLE pobsConstr"
                "(id INTEGER NOT NULL PRIMARY KEY,"
                "pob_id INTEGER REFERENCES pobs(id) ON DELETE CASCADE,"
-               "expr_id INTEGER REFERENCES expr(id) ON DELETE CASCADE,"
-               "UNIQUE(pob_id, expr_id))";
+               "expr_id INTEGER REFERENCES expr(id) ON DELETE CASCADE"
+              //  "instr_loc TEXT"
+               "UNIQUE(pob_id, expr_id)"
+               ")";
   finalize(sql_create, st);
   // unordered_set<ProofObligation *> children;
   sql_create = "CREATE TABLE pobsChildren "
@@ -521,8 +529,12 @@ std::map<unsigned, Database::DBPob> Database::pobs_retrieve() {
       DBPob pob;
       pob.root_id = sqlite3_column_int(st, 1);
       pob.parent_id = sqlite3_column_int(st, 2);
-      pob.location = *sqlite3_column_text(st, 3);
-      pob.path = *sqlite3_column_text(st, 4);
+      // pob.location = *sqlite3_column_text(st, 3);
+      pob.location = std::string(
+          reinterpret_cast<const char *>(sqlite3_column_text(st, 3)));
+      // pob.path = *sqlite3_column_text(st, 4);
+      pob.path = std::string(
+          reinterpret_cast<const char *>(sqlite3_column_text(st, 4)));
       result.insert(std::make_pair(sqlite3_column_int(st, 0), pob));
       break;
     }
