@@ -93,9 +93,10 @@ private:
   std::map<const Array *, int64_t> arrayDBMap;
   std::map<uint64_t, std::set<uint64_t>> arrayParentMap;
   std::map<int64_t, const Array *> arrayReverseDBMap;
-  //7.4 Instructions
-  // std::map<const KInstruction *, int64_t> instrDBMap;
-  // std::map<int64_t, const KInstruction *> arrayInstrDBMap;
+  //7.4 Pobs roots and childrens
+  std::map<uint64_t, std::set<uint64_t>> pobsChildren;
+  // std::vector<std::pair<uint64_t, uint64_t>> pobsRoot;
+  std::map<uint64_t, std::set<uint64_t>> pobsRoot;
 
 public:
   ObjectManager();

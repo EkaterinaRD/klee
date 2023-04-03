@@ -506,8 +506,12 @@ void ObjectManager::storePob(ProofObligation *pob) {
     if (!exprDBMap.count(e))
       exprDBMap[e] = db->expr_write(e);
     assert(exprDBMap.count(e) && "No expr in DB");
-    // auto instr = pob->condition.getLocation(e);
-    db->pobsConstr_write(pob->id, exprDBMap[e]);
+    auto instr = pob->condition.getLocation(e);
+    std::string str_instr = instr->parent->parent->function->getName().str();
+    str_instr += " ";
+    str_instr += std::to_string(instr->dest);
+    // str_instr += instr->parent->parent->inst2reg[instr];
+    db->pobsConstr_write(pob->id, exprDBMap[e], str_instr);
     storeArray(e);
   }
 }
@@ -671,6 +675,16 @@ void ObjectManager::loadPobs() {
   for (auto pob : DBPob) {
     ProofObligation *newPob = new ProofObligation(pob.first);
     newPob->setCounter(maxIdPob);
+    if (pob.first == pob.second.root_id) {
+      newPob->parent = nullptr;
+      newPob->root = newPob;
+    } else {
+      // auto pob_root = std::make_pair(pob.first, pob.second.root_id);
+      // pobsRoot.push_back(pob_root);
+      pobsRoot[pob.second.root_id].insert(pob.first);
+      newPob->parent = nullptr;
+      newPob->root  = nullptr;
+    }
     newPob->location = parseLocation(pob.second.location, module, DBHashMap);
     ref<Path> path = parse(pob.second.path, module, DBHashMap);
     newPob->path = *path;
@@ -678,16 +692,54 @@ void ObjectManager::loadPobs() {
       auto instraction = parseInstruction(instr.second, module, DBHashMap);
       newPob->stack.push_back(instraction);
     }
-    // for (auto expr_id : pob.second.exprs) {
-    //   // l->constraints.insert(exprReverseDBMap[expr_id]);
-    //   newPob->condition.ins
-    // }
+    for (auto expr_instr : pob.second.expr_instr) {
+      auto expr = exprReverseDBMap[expr_instr.first];
+      auto instr = parseInstruction(expr_instr.second, module, DBHashMap);
+      newPob->condition.insert(expr, instr);
+    }
+    addedPobs.push_back(newPob);
+  }
+  for (auto pob : addedPobs) {
+    auto pob_id = pob->id;
+    auto children = pobsChildren[pob_id];
+    for (auto child_id : children) {
+      for (auto child_pob : addedPobs) {
+        if (child_pob->id == child_id) {
+          pob->children.insert(child_pob);
+          child_pob->parent = pob;
+        }
+      }
+    }
+  }
+  for (auto pob : addedPobs) {
+  //   if (pob->parent = nullptr) {
+  //     auto pob_id = pob->id;
+  //     auto descendants = pobsRoot[pob_id];
+  //     for (auto child_id : descendants) {
+  //       for (auto desc_pob : addedPobs) {
+  //         if (desc_pob->id == child_id) {
+  //           desc_pob->root = pob;
+  //         }
+  //       }
+  //     } 
+  //   }
+  // }
+    auto pob_id = pob->id;
+    auto descendants = pobsRoot[pob_id];
+    for (auto child_id : descendants) {
+      for (auto desc_pob : addedPobs) {
+        if (desc_pob->id == child_id) {
+          desc_pob->root = pob;
+        }
+      }
+    }
   }
 }
 
 void ObjectManager::storeAllToDB() {
   // write all objects to DB
   db->maxId_write(maxIdState, maxIdPob);
+
   storeLemmas();
 }
 
@@ -714,10 +766,13 @@ void ObjectManager::loadAllFromDB() {
   auto exprs = db->exprs_retrieve();
   makeExprs(exprs);
 
-  // llvm::errs() << maxIdState << ", " << maxIdPob << "\n";
-  // exit(1); 
   // load all objects from DB
   loadLemmas();
+
+  auto childrens = db->pobsChildren_retrieve();
+  for (const auto &pob_child : childrens) {
+    pobsChildren[pob_child.first].insert(pob_child.second);
+  }
   loadPobs();
 
   delete parser;

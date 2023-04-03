@@ -115,8 +115,8 @@ void Database::create_schema() {
   sql_create = "CREATE TABLE pobsConstr"
                "(id INTEGER NOT NULL PRIMARY KEY,"
                "pob_id INTEGER REFERENCES pobs(id) ON DELETE CASCADE,"
-               "expr_id INTEGER REFERENCES expr(id) ON DELETE CASCADE"
-              //  "instr_loc TEXT"
+               "expr_id INTEGER REFERENCES expr(id) ON DELETE CASCADE,"
+               "instr TEXT,"
                "UNIQUE(pob_id, expr_id)"
                ")";
   finalize(sql_create, st);
@@ -261,7 +261,8 @@ void Database::pob_write(ProofObligation *pob) {
   for (auto instr : pob->stack) {
     std::string str_instr = instr->parent->parent->function->getName().str();
     str_instr += " ";
-    auto instrNum = instr->parent->parent->inst2reg[instr];
+    // auto instrNum = instr->parent->parent->inst2reg[instr];
+    auto instrNum = instr->dest;
     str_instr += std::to_string(instrNum);
     sql = "INSERT INTO pobsStack (pob_id, numOfInstr, instr) "
           "VALUES (" + 
@@ -276,9 +277,28 @@ void Database::pob_write(ProofObligation *pob) {
   }
 }
 
-void Database::pobsConstr_write(unsigned pob_id, uint64_t expr_id) {
-  std::string sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id) "
-                    "VALUES (" + std::to_string(pob_id) + ", " + std::to_string(expr_id) +")";
+void Database::pobsChildren_write(ProofObligation *pob) {
+  
+  std::string pob_id = std::to_string(pob->id);
+  for (auto child : pob->children) {
+    std::string child_id = std::to_string(child->id);
+    std::string sql = "INSERT INTO pobsChildren (pob_id, child_id) "
+                      "VALUES (" + pob_id + ", " + child_id + ");";
+    
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+      exit(1);
+    }
+  }
+  
+
+}
+
+void Database::pobsConstr_write(unsigned pob_id, uint64_t expr_id, std::string instr) {
+  std::string sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id, instr) "
+                    "VALUES (" + std::to_string(pob_id) + ", " + 
+                    std::to_string(expr_id) + ", " +
+                    "'" + instr + "'" +
+                    ")";
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }
@@ -433,6 +453,32 @@ std::set<std::pair<uint64_t, uint64_t>> Database::parents_retrieve() {
   return parents;
 }
 
+
+// Pobs Children
+std::set<std::pair<uint64_t, uint64_t>> Database::pobsChildren_retrieve() {
+  std::set<std::pair<uint64_t, uint64_t>> children;
+  sqlite3_stmt *st;
+  std::string sql = "SELECT pob_id, child_id FROM pobsChildren ";
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW:
+      children.insert(
+          std::make_pair(sqlite3_column_int(st, 0), sqlite3_column_int(st, 1)));
+      break;
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+  return children;
+}
+
 std::map<uint64_t, std::string> Database::arrays_retrieve() {
   std::map<uint64_t, std::string> arrays;
   sqlite3_stmt *st;
@@ -548,10 +594,11 @@ std::map<unsigned, Database::DBPob> Database::pobs_retrieve() {
     exit(1);
 
   for (auto &pob : result) {
-    auto exprs_id = pobConstr_retrieve(std::to_string(pob.first));
-    for (auto id : exprs_id) {
-      pob.second.exprs.push_back(id);
-    }
+    // auto exprs_id = pobConstr_retrieve(std::to_string(pob.first));
+    // for (auto id : exprs_id) {
+    //   // pob.second.exprs.push_back(id);
+    //   pob.second.expr_instr
+    // }
 
     auto children_id = pobChildren_retrieve(std::to_string(pob.first));
     for (auto id : children_id) {
@@ -566,9 +613,9 @@ std::map<unsigned, Database::DBPob> Database::pobs_retrieve() {
   return result;
 }
 
-std::vector<uint64_t> Database::pobConstr_retrieve(std::string pob_id) {
-  std::vector<uint64_t> exprs_id;
-  std::string sql = "SELECT expr_id FROM pobsConstr WHERE pob_id = " + pob_id;
+std::vector<std::pair<uint64_t, std::string>> Database::pobConstr_retrieve(std::string pob_id) {
+  std::vector<std::pair<uint64_t, std::string>> exprs_instr;
+  std::string sql = "SELECT expr_id, instr FROM pobsConstr WHERE pob_id = " + pob_id;
   sqlite3_stmt *st;
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
     exit(1);
@@ -576,9 +623,13 @@ std::vector<uint64_t> Database::pobConstr_retrieve(std::string pob_id) {
   bool done = false;
   while (!done) {
     switch (sqlite3_step(st)){
-    case SQLITE_ROW:
-      exprs_id.push_back(sqlite3_column_int(st, 0));
+    case SQLITE_ROW: {
+      auto expr_id = sqlite3_column_int(st, 0);
+      auto instr_str = std::string(
+          reinterpret_cast<const char *>(sqlite3_column_text(st, 1))); 
+      exprs_instr.push_back(std::make_pair(expr_id, instr_str));
       break;
+    }
     case SQLITE_DONE:
       done = true;
       break;
@@ -587,7 +638,7 @@ std::vector<uint64_t> Database::pobConstr_retrieve(std::string pob_id) {
   if (sqlite3_finalize(st) != SQLITE_OK)
     exit(1);
 
-  return exprs_id;
+  return exprs_instr;
 }
 
 std::vector<unsigned> Database::pobChildren_retrieve(std::string pob_id) {

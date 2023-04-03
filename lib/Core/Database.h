@@ -45,8 +45,9 @@ public:
     unsigned parent_id;
     std::string location;
     std::string path;
-    std::vector<uint64_t> exprs;
-    std::vector<uint64_t> instr_expr;
+    // std::vector<uint64_t> exprs;
+    // std::vector<uint64_t> instr_expr;
+    std::vector<std::pair<uint64_t, std::string>> expr_instr;
     std::vector<unsigned> children;
     // std::vector<std::string> stack;
     std::map<int64_t, std::string> stack;
@@ -60,7 +61,8 @@ public:
   void constraint_write(int64_t expr, int64_t summary);
   void arraymap_write(int64_t array, int64_t expr);
   void pob_write(ProofObligation *pob);
-  void pobsConstr_write(unsigned pob_id, uint64_t expr_id);
+  void pobsChildren_write(ProofObligation *pob);
+  void pobsConstr_write(unsigned pob_id, uint64_t expr_id, std::string instr);
   void maxId_write(std::uint32_t maxIdState, unsigned maxIdPob);
 
   std::string array_retrieve(int64_t id);
@@ -73,10 +75,13 @@ public:
   std::map<uint64_t, DBLemma> lemmas_retrieve();
   std::map<std::string, size_t> functionhash_retrieve();
   std::set<std::pair<uint64_t, uint64_t>> parents_retrieve();
+  std::set<std::pair<uint64_t, uint64_t>> pobsChildren_retrieve();
   std::pair<std::uint32_t, unsigned> maxId_retrieve();
   std::map<unsigned, DBPob> pobs_retrieve();
-  std::vector<uint64_t> pobConstr_retrieve(std::string pob_id);
+  // std::vector<uint64_t> pobConstr_retrieve(std::string pob_id);
+  std::vector<std::pair<uint64_t, std::string>> pobConstr_retrieve(std::string pob_id);
   std::vector<unsigned> pobChildren_retrieve(std::string pob_id);
+  // std::vector<std::pair<uint64_t, uint64_t>> pobs
   std::map<int64_t, std::string> pobStack_retrieve(std::string pob_id);
 
   void lemma_delete(uint64_t);
