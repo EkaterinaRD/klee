@@ -46,6 +46,38 @@ bool TimingSolver::evaluate(const ConstraintSet &constraints, ref<Expr> expr,
   return success;
 }
 
+bool TimingSolver::evaluate(/*const*/ ExecutionState &state, ref<Expr> expr,
+                            Solver::Validity &result, 
+                            SolverQueryMetaData &metaData,
+                            bool produceUnsatCore) {
+  
+  // Fast path, to avoid timer and OS overhead.
+  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(expr)) {
+    result = CE->isTrue() ? Solver::True : Solver::False;
+    return true;
+  }
+
+  TimerStatIncrementer timer(stats::solverTime);
+
+  // if (inReexecutuionMode)
+  // if (state.node.hasSolverResult()) {
+  //   result = state.node.getSolverResult();
+  //   return true;
+  // }
+  
+  // const ConstraintSet &constraints = state.constraints;
+
+  if (simplifyExprs)
+    expr = ConstraintManager::simplifyExpr(state.constraints, expr);
+
+  bool success =
+      solver->evaluate(Query(state.constraints, expr, produceUnsatCore), result);
+
+  metaData.queryCost += timer.delta();
+
+  return success;
+}
+ 
 bool TimingSolver::mustBeTrue(const ConstraintSet &constraints, ref<Expr> expr,
                               bool &result, SolverQueryMetaData &metaData,
                               bool produceUnsatCore) {

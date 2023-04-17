@@ -246,6 +246,7 @@ void ObjectManager::setReachedStates() {
   std::vector<ExecutionState *> reachedStates = act->reached;
 
   for (auto state : reachedStates) {
+    saveState(*state, true);
     addStateToPob(state);
   }
 }
@@ -516,6 +517,11 @@ void ObjectManager::storePob(ProofObligation *pob) {
   }
 }
 
+void ObjectManager::saveState(ExecutionState &state, bool terminated) {
+  state.setNode(terminated);
+  statesDB.push_back(state.node);
+}
+
 void ObjectManager::storeLemmas() {
   
   for (auto lemma : lemmas) {
@@ -712,18 +718,6 @@ void ObjectManager::loadPobs() {
     }
   }
   for (auto pob : addedPobs) {
-  //   if (pob->parent = nullptr) {
-  //     auto pob_id = pob->id;
-  //     auto descendants = pobsRoot[pob_id];
-  //     for (auto child_id : descendants) {
-  //       for (auto desc_pob : addedPobs) {
-  //         if (desc_pob->id == child_id) {
-  //           desc_pob->root = pob;
-  //         }
-  //       }
-  //     } 
-  //   }
-  // }
     auto pob_id = pob->id;
     auto descendants = pobsRoot[pob_id];
     for (auto child_id : descendants) {
@@ -736,10 +730,80 @@ void ObjectManager::loadPobs() {
   }
 }
 
+void ObjectManager::storeStates() {
+  for (auto node : statesDB) {
+    std::string values;
+    values += std::to_string(node.state_id) + ", "; // state_id
+    
+    std::string initLoc = "'"; // initLoc
+    initLoc += node.initPC->parent->parent->function->getName().str();
+    initLoc += " ";
+    initLoc += std::to_string(node.initPC->dest) + "', ";
+    values += initLoc;
+    
+    std::string currLoc = "'"; // currLoc
+    currLoc += node.currPC->parent->parent->function->getName().str();
+    currLoc += " ";
+    currLoc += std::to_string(node.currPC->dest) + "', ";
+    values += currLoc;
+
+    values += "'" + node.executionPath + "', "; // choiceBranch
+    
+    std::string solverResult = "'"; // solverResult
+    for (auto res : node.solverResult) {
+      solverResult += std::to_string(res);
+    }
+    solverResult += "', ";
+    values += solverResult;
+
+    values += "'" + node.path.toString() + "', "; // path
+    std::set<KFunction *> functions = node.path.getFunctionsInPath();
+    for (auto f : functions) {
+      db->functionhash_write(std::string(f->function->getName()), module->functionHash(f));
+    }
+
+    values += std::to_string(node.countInstrs) + ", "; // countInstr
+    
+    if (node.isolated == true) { // isolated
+      values += std::to_string(1) + ", ";
+    } else {
+      values += std::to_string(0) + ", ";
+    }
+
+    if (node.terminated == true) { // terminated
+      values += std::to_string(1);
+    } else {
+      values += std::to_string(0);
+    }
+
+    db->state_write(values);
+
+    for (auto e : node.constraints) { // constraints
+      if (!exprDBMap.count(e))
+        exprDBMap[e] = db->expr_write(e);
+      assert(exprDBMap.count(e) && "No expr in DB");
+      auto instr = node.constraints.getLocation(e);
+      std::string str_instr = instr->parent->parent->function->getName().str();
+      str_instr += " ";
+      str_instr +=  std::to_string(instr->dest);
+      db->statesConstr_write(node.state_id, exprDBMap[e], str_instr);
+      storeArray(e);
+    }
+  }
+}
+
+void ObjectManager::storePropagations() {
+  for (auto prop : propagations) {
+    db->prop_write(prop.state->getID(), prop.pob->id);
+  }
+}
+
 void ObjectManager::storeAllToDB() {
   // write all objects to DB
   db->maxId_write(maxIdState, maxIdPob);
 
+  storeStates();
+  storePropagations();
   storeLemmas();
 }
 

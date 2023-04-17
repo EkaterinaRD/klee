@@ -193,6 +193,28 @@ struct Target {
   
 };
 
+struct Node {
+  std::uint32_t state_id;
+  KInstIterator initPC;
+  KInstIterator currPC;
+  std::uint64_t countInstrs;
+  std::string executionPath; //==choiceBranch
+  std::vector<Solver::Validity> solverResult;
+  Constraints constraints;
+  Path path;
+  bool isolated;
+  bool terminated;
+
+  int index = 0;
+
+  // void setNode(ExecutionState *state);
+  // bool hasSolverResult();
+  // Solver::Validity getSolverResult();
+  void appendSolverResult(Solver::Validity result);
+
+  std::string getValues();
+
+};
 
 
 /// @brief ExecutionState representing a path under exploration
@@ -308,6 +330,8 @@ public:
   bool forkDisabled;
 
   bool isolated;
+  bool reExecuted = false; 
+  Node node;
 
   /// @brief The target basic block that the state must achieve
   std::set<Target> targets;
@@ -365,6 +389,7 @@ public:
   bool isEmpty() const;
   bool isCriticalPC() const;
   bool isIsolated() const;
+  void setNode(bool terminated);
   // for debugging
   static void printCompareList(const ExecutionState &, const ExecutionState &, llvm::raw_ostream &);
   void print(llvm::raw_ostream & os) const;

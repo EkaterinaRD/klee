@@ -63,7 +63,12 @@ public:
   void pob_write(ProofObligation *pob);
   void pobsChildren_write(ProofObligation *pob);
   void pobsConstr_write(unsigned pob_id, uint64_t expr_id, std::string instr);
+  void pobPropCount_write(const ProofObligation *pob);
+  void pobStack_write(const ProofObligation *pob);
   void maxId_write(std::uint32_t maxIdState, unsigned maxIdPob);
+  void state_write(std::string values);
+  void statesConstr_write(uint32_t state_id, uint64_t expr_id, std::string instr);
+  void prop_write(uint32_t state_id, unsigned pob_id);
 
   std::string array_retrieve(int64_t id);
   std::string expr_retrieve(int64_t id);

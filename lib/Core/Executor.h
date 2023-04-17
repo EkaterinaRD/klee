@@ -102,7 +102,6 @@ template <class T> class ref;
 /// \todo Add a context object to keep track of data only live
 /// during an instruction step. Should contain addedStates,
 /// removedStates, and haltExecution, among others.
-
 class Executor : public Interpreter {
   friend class OwningSearcher;
   friend class WeightedRandomSearcher;
@@ -751,4 +750,8 @@ public:
   void initializeRoots(ExecutionState *initialState);
 };
 
+bool inReexecutionMode(ExecutionState *state);
+
 } // namespace klee
+;
+

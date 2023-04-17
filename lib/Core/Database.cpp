@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "Path.h"
+#include "ExecutionState.h"
 #include "klee/Expr/Expr.h"
 #include "klee/Expr/ExprBuilder.h"
 #include "klee/Expr/ExprPPrinter.h"
@@ -134,13 +135,39 @@ void Database::create_schema() {
                "instr TEXT"
                ")";
   finalize(sql_create, st);
-  // // map<ExecutionState *, unsigned> propagationCount;
-  // sql_create =  "CREATE TABLE propagationCount "
-  //               "(pob_id INTEGER,"
-  //               "state_id INTEGER,"
-  //               "count INTEGER"
-  //               ")";
-  // finalize(sql_create, st);                
+  sql_create = "CREATE TABLE states "
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "initLoc TEXT,"
+               "currLoc TEXT,"
+               "choiceBranch TEXT,"
+               "solverResult TEXT,"
+               "path TEXT,"
+               "countInstr INTEGER,"
+               "isolated INTEGER,"
+               "terminated INTEGER"
+               ")";
+  finalize(sql_create, st);    
+  // map<ExecutionState *, unsigned> propagationCount;
+  sql_create =  "CREATE TABLE propagationCount "
+                "(pob_id INTEGER REFERENCES pobs(id) ON DELETE CASCADE,"
+                "state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
+                "count INTEGER"
+                ")";
+  finalize(sql_create, st);
+  sql_create = "CREATE TABLE statesConstr"
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
+               "expr_id INTEGER REFERENCES expr(id) ON DELETE CASCADE,"
+               "instr TEXT,"
+               "UNIQUE(state_id, expr_id)"
+               ")";
+  finalize(sql_create, st);            
+  // propagations
+  sql_create = "CREATE TABLE propagations"
+               "(state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
+               "pob_id INTEGER REFERENCES pobs(id) ON DELETE CASCADE"
+               ")";
+  finalize(sql_create, st);
 }
 
 void Database::drop_schema() {
@@ -246,34 +273,41 @@ void Database::pob_write(ProofObligation *pob) {
     exit(1);
   }
 
-  // for (auto i : pob->condition) {
-  //   int64_t expr_id = expr_write(i);
-  //   sql = "INSERT OR IGNORE INTO pobsConstr (pob_id, expr_id)"
-  //                   "VALUES (" +
-  //                   pob_id + ", " + std::to_string(expr_id) +
-  //                   ");";
-  //   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
-  //     exit(1);
-  //   }
-  // }
+  pobStack_write(pob);
+  pobPropCount_write(pob);
+}
 
+void Database::pobStack_write(const ProofObligation *pob) {
   size_t index = 0;
   for (auto instr : pob->stack) {
     std::string str_instr = instr->parent->parent->function->getName().str();
     str_instr += " ";
-    // auto instrNum = instr->parent->parent->inst2reg[instr];
     auto instrNum = instr->dest;
     str_instr += std::to_string(instrNum);
-    sql = "INSERT INTO pobsStack (pob_id, numOfInstr, instr) "
-          "VALUES (" + 
-          pob_id + ", " + std::to_string(index) + ", " +
-          "'" + str_instr + "'" +
-          // std::to_string(instrNum) + 
-          ")";
+    std::string sql = "INSERT INTO pobsStack (pob_id, numOfInstr, instr) "
+                      "VALUES (" + std::to_string(pob->id) + ", " 
+                     + std::to_string(index) + ", " 
+                     + "'" + str_instr + "'" 
+                     + ")";
     if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
       exit(1);
     }
     index++;
+  }
+}
+
+void Database::pobPropCount_write(const ProofObligation *pob) {
+  for (auto item : pob->propagationCount) {
+    auto state = item.first;
+    auto count = item.second;
+    std::string values = std::to_string(pob->id) + ", "
+                       + std::to_string(state->getID()) + ", "
+                       + std::to_string(count);
+    std::string sql = "INSERT INTO propagationCount (pob_id, state_id, count)"
+                      "VALUES (" + values + ")";
+    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+      exit(1);
+    }
   }
 }
 
@@ -308,6 +342,35 @@ void Database::maxId_write(std::uint32_t maxIdState, unsigned maxIdPob) {
   std::string sql = "INSERT INTO maxID (maxIdState, maxIdPob) " 
                     "VALUES (" + std::to_string(maxIdState) + ", "
                                + std::to_string(maxIdPob) + ");";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::state_write(std::string values) {
+  std::string sql = "INSERT INTO states (id, initLoc, currLoc, choiceBranch, solverResult, path, countInstr, isolated, terminated) "
+                    "VALUES (" + values + ");";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::statesConstr_write(uint32_t state_id, uint64_t expr_id, std::string instr) {
+  std::string sql = "INSERT OR IGNORE INTO statesConstr (state_id, expr_id, instr) "
+                    "VALUES (" + std::to_string(state_id) + ", " + 
+                    std::to_string(expr_id) + ", " +
+                    "'" + instr + "'" +
+                    ")";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::prop_write(uint32_t state_id, unsigned pob_id) {
+  std::string sql = "INSERT INTO propagations (state_id, pob_id) "
+                    "VALUES (" + std::to_string(state_id) + ", " 
+                               + std::to_string(pob_id) 
+                               + ")";
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }

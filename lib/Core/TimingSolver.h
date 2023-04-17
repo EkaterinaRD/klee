@@ -14,6 +14,7 @@
 #include "klee/Expr/Expr.h"
 #include "klee/Solver/Solver.h"
 #include "klee/System/Time.h"
+// #include "klee/Core/Interpreter.h"
 
 #include <memory>
 #include <vector>
@@ -21,6 +22,7 @@
 namespace klee {
 class ConstraintSet;
 class Solver;
+class ExecutionState;
 
 /// TimingSolver - A simple class which wraps a solver and handles
 /// tracking the statistics that we care about.
@@ -47,6 +49,10 @@ public:
   bool evaluate(const ConstraintSet &, ref<Expr>, Solver::Validity &result,
                 SolverQueryMetaData &metaData,
                 bool produceUnsatCore = false);
+
+  bool evaluate(/*const*/ ExecutionState &state, ref<Expr> expr, Solver::Validity &result, 
+                SolverQueryMetaData &metaData,
+                bool produceUnsatCore);
 
   bool mustBeTrue(const ConstraintSet &, ref<Expr>, bool &result,
                   SolverQueryMetaData &metaData,

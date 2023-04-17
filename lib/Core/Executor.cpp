@@ -1103,6 +1103,8 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
   solver->setTimeout(timeout);
   bool success = solver->evaluate(current.constraints, condition, res,
                                   current.queryMetaData, produceUnsatCore);
+  // bool success = solver->evaluate(current, condition, res, 
+  //                                 current.queryMetaData, produceUnsatCore);
   if (produceUnsatCore)
     solver->popUnsatCore(conflict);
 
@@ -1196,6 +1198,7 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
       }
     }
 
+    current.node.appendSolverResult(res);
     return StatePair(&current, 0);
   } else if (res==Solver::False) {
     if (!isInternal) {
@@ -1205,6 +1208,7 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
       }
     }
 
+    current.node.appendSolverResult(res);
     return StatePair(0, &current);
   } else {
     TimerStatIncrementer timer(stats::forkTime);
@@ -1281,6 +1285,8 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
       return StatePair(0, 0);
     }
 
+    trueState->node.appendSolverResult(res);
+    falseState->node.appendSolverResult(res);
     return StatePair(trueState, falseState);
   }
 }
@@ -3791,6 +3797,7 @@ void Executor::terminateState(ExecutionState &state) {
 
 void Executor::terminateStateEarly(ExecutionState &state,
                                    const Twine &message) {
+  objectManager.saveState(state, false);
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
        (AlwaysOutputSeeds && seedMap->count(&state))))
@@ -3800,6 +3807,7 @@ void Executor::terminateStateEarly(ExecutionState &state,
 }
 
 void Executor::terminateStateOnExit(ExecutionState &state) {
+  objectManager.saveState(state, true);
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
        (AlwaysOutputSeeds && seedMap->count(&state))))
@@ -5737,3 +5745,9 @@ void Executor::extractSourcedSymbolics(ExecutionState &state,
 int Executor::resolveLazyInstantiation(ExecutionState &state) {
   return resolveLazyInstantiation(state, state.pointers);
 }
+
+// bool klee::inReexecutionMode(ExecutionState *state) {
+//   return state->reExecuted;
+// }
+
+bool klee::inReexecutionMode(ExecutionState *state) { return state->reExecuted; }

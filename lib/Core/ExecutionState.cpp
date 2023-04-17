@@ -86,6 +86,28 @@ void StackFrame::print() const {
 
 /***/
 
+// Return success value
+// bool Node::hasSolverResult() {
+//   if (index < executionPath.size()) {
+//     return true;
+//   }
+
+//   return false;
+// }
+
+// return solver Result
+// Solver::Validity Node::getSolverResult() {
+//   Solver::Validity result = solverResult[index];
+//   index++;
+//   return result;
+// }
+
+void Node::appendSolverResult(Solver::Validity result) {
+  solverResult.push_back(result);
+}
+
+/***/
+
 ExecutionState::ExecutionState(KFunction *kf) :
     initPC(nullptr),
     pc(nullptr),
@@ -170,6 +192,7 @@ ExecutionState::ExecutionState(const ExecutionState& state):
                              : nullptr),
     coveredNew(state.coveredNew),
     forkDisabled(state.forkDisabled),
+    // node(state.node),
     isolated(state.isolated),
     targets(state.targets),
     path(state.path),
@@ -177,6 +200,7 @@ ExecutionState::ExecutionState(const ExecutionState& state):
     returnValue(state.returnValue),
     backwardStepsLeftCounter(0),
     failedBackwardStepsCounter(0) {
+  node = state.node;
   for (const auto &cur_mergehandler: openMergeStack)
     cur_mergehandler->addOpenState(this);
 }
@@ -188,6 +212,7 @@ ExecutionState *ExecutionState::branch() {
   falseState->setID();
   falseState->coveredNew = false;
   falseState->coveredLines.clear();
+  // falseState->node = this->node; // copy node
 
   return falseState;
 }
@@ -202,6 +227,7 @@ ExecutionState *ExecutionState::withKFunction(KFunction *kf) const {
   newState->pc = newState->initPC;
   newState->prevPC = newState->pc;
   newState->path = Path({kf->entryKBlock});
+  // newState->node = this->node; // copy node
   return newState;
 }
 
@@ -525,6 +551,18 @@ bool ExecutionState::isCriticalPC() const {
 
 bool ExecutionState::isIsolated() const {
   return isolated;
+}
+
+void ExecutionState::setNode(bool terminated) {
+  node.state_id = getID();
+  node.initPC = initPC;
+  node.currPC = pc;
+  node.countInstrs = steppedInstructions;
+  node.executionPath = executionPath;
+  node.constraints = constraintInfos;
+  node.path = path;
+  node.isolated = isIsolated();
+  node.terminated = terminated;
 }
 
 void ExecutionState::printCompareList(const ExecutionState &fst, const ExecutionState &snd, 
