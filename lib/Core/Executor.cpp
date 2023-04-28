@@ -1065,6 +1065,63 @@ Executor::fork(ExecutionState &current, ref<Expr> condition,
     assert(ProduceUnsatCore);
 
   Solver::Validity res;
+
+  if (reExecutionMode) {
+    if (!isa<ConstantExpr>(condition) && !isInternal) {
+      auto solverResult = current.node.getSolverResult();
+      if (solverResult == Solver::True) {
+        if (!isInternal) {
+          current.executionPath += "1";
+          if (pathWriter) {
+            current.pathOS << "1";
+          }
+        }
+
+        return StatePair(&current, 0);
+      } else if (solverResult == Solver::False) {
+        if (!isInternal) {
+          current.executionPath += "0";
+          if (pathWriter) {
+            current.pathOS << "0";
+          }
+        }
+
+        return StatePair(0, &current);
+      } else {
+        TimerStatIncrementer timer(stats::forkTime);
+        ++stats::forks;
+
+
+        auto expr = current.node.getExpr();
+        if (expr == condition ) {
+          current.executionPath += "1";
+          if (pathWriter) {
+            if (!isInternal) {
+              current.pathOS << "1";
+            }
+          }
+          if (symPathWriter) {
+            current.symPathOS << "1";
+          }
+          addConstraint(current, condition);
+          return StatePair(&current, 0);
+        } else if (expr == Expr::createIsZero(condition)) {
+          current.executionPath += "0";
+          if (pathWriter) {
+            if (!isInternal) {
+              current.pathOS << "0";
+            }
+          }
+          if (symPathWriter) {
+            current.symPathOS << "0";
+          }
+          addConstraint(current, Expr::createIsZero(condition));
+          return StatePair(0, &current);
+        }
+      }
+    }
+  }
+
   std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
     seedMap->find(&current);
   bool isSeeding = it != seedMap->end();
@@ -5430,11 +5487,44 @@ void Executor::addPob(ProofObligation *pob) {
   objectManager.addPob(pob);
 }
 
-void Executor::run(ExecutionState &state) {
-  objectManager.setInitialAndEmtySt(&state);
+void Executor::reExecutionStates() {
+  auto statesDB = objectManager.getReExecutionStates();
+  for (ExecutionState *reExState : statesDB) {
+    while (true) {
+      // auto finalBlock = reExState->node.path.getFinalBlock();
+      goForward(new ForwardAction(reExState));
+      // + when call function
+      if (reExState->prevPC->inst->getOpcode() == Instruction::Br ||
+          reExState->prevPC->inst->getOpcode() == Instruction::Call) {
+        auto index = reExState->path.getCurrentIndex();
+        if (reExState->node.path.getBlock(index) != reExState->path.getFinalBlock()) {
+          // set change
+          break;
+        }
+      }
+    }
+  }
+}
 
+void Executor::run(ExecutionState &state) {
   timers.reset();
-  objectManager.addState(&state);
+
+
+  objectManager.setInitialAndEmtySt(&state);
+  // summary->loadAllFromDB();
+  // objectManager.loadAllFromDB();
+  if (SummaryDB != "") {
+    reExecutionMode = true;
+    objectManager.loadAllFromDB(&state);
+    reExecutionStates();
+    // auto reExStates = objectManager.loadStates();
+    // reExecutionStates(reExStates);
+    // objectManager.loadOtherObjects();
+  } else {
+    objectManager.addState(&state);
+  } 
+
+  // objectManager.addState(&state);
 
   SearcherConfig cfg;
   cfg.executor = this;
@@ -5506,6 +5596,7 @@ void Executor::run(ExecutionState &state) {
 
   objectManager.setAction(new ForwardAction(nullptr));
   objectManager.updateResult();
+  
 
   if (ExecutionMode == ExecutionKind::Forward) {
     searcher = std::make_unique<ForwardOnlySearcher>(cfg);
@@ -5516,11 +5607,6 @@ void Executor::run(ExecutionState &state) {
   }
   objectManager.subscribe(searcher.get());
 
-  // summary->loadAllFromDB();
-  // objectManager.loadAllFromDB();
-  if (SummaryDB != "") {
-    objectManager.loadAllFromDB();
-  }
 
   while (!haltExecution) {
     auto action = searcher->selectAction();
@@ -5750,4 +5836,4 @@ int Executor::resolveLazyInstantiation(ExecutionState &state) {
 //   return state->reExecuted;
 // }
 
-bool klee::inReexecutionMode(ExecutionState *state) { return state->reExecuted; }
+// bool klee::inReexecutionMode(ExecutionState *state) { return state->reExecuted; }

@@ -35,6 +35,10 @@ public:
     return path.size() - 1;
   }
 
+  // KBlock *getKBlockByIndex(size_t index) const {
+  //   return path[index];
+  // }
+
   size_t size() const {
     return path.size();
   }

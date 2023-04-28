@@ -97,8 +97,9 @@ private:
   std::map<uint64_t, std::set<uint64_t>> pobsChildren;
   // std::vector<std::pair<uint64_t, uint64_t>> pobsRoot;
   std::map<uint64_t, std::set<uint64_t>> pobsRoot;
-  // 7.5 
+  // 7.5 states
   std::vector<Node> statesDB;
+  std::set<ExecutionState *, ExecutionStateIDCompare> reExecutionStates;
 
 public:
   ObjectManager();
@@ -147,7 +148,8 @@ public:
                  const Conflict &conflict,
                  const ExprHashMap<ref<Expr>> &rebuildMap);
   void storeAllToDB();               
-  void loadAllFromDB();
+  void loadAllFromDB(ExecutionState *startState);
+  std::set<ExecutionState *, ExecutionStateIDCompare> getReExecutionStates();
   void makeArray(const std::map<uint64_t, std::string> &arrays, uint64_t id);
   void makeExprs(const std::map<uint64_t, std::string> &exprs);
   void saveState(ExecutionState &state, bool terminated);
@@ -173,7 +175,7 @@ private:
   void storeLemmas();
   void storeArray(ref<Expr> e);
   void loadPobs();
-  // void loadStates();
+  void loadStates(ExecutionState *startState);
   // void loadPropagations();
   void loadLemmas();
 };

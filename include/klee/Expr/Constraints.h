@@ -42,6 +42,8 @@ public:
 
   void push_back(const ref<Expr> &e);
 
+  ref<Expr> getExpr(size_t index);
+
   bool operator==(const ConstraintSet &b) const {
     return constraints == b.constraints;
   }
@@ -63,6 +65,8 @@ public:
   void insert(const ref<Expr> &e, KInstruction *location);
   KInstruction *getLocation(const ref<Expr> &e) const;
   const ConstraintSet &set() const;
+
+  ref<Expr> getExpr(size_t index) { return constraints.getExpr(index); }
 
   bool operator==(const Constraints &b) const {
     return constraints == b.constraints;

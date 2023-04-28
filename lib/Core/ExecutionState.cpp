@@ -86,24 +86,25 @@ void StackFrame::print() const {
 
 /***/
 
-// Return success value
-// bool Node::hasSolverResult() {
-//   if (index < executionPath.size()) {
-//     return true;
-//   }
-
-//   return false;
-// }
-
-// return solver Result
-// Solver::Validity Node::getSolverResult() {
-//   Solver::Validity result = solverResult[index];
-//   index++;
-//   return result;
-// }
-
 void Node::appendSolverResult(Solver::Validity result) {
   solverResult.push_back(result);
+}
+
+void Node::addConstraint(ref<Expr> e, KInstruction *loc, bool *sat) {
+  ConstraintManager c(constraints);
+  c.addConstraint(e, loc, sat);
+}
+
+Solver::Validity Node::getSolverResult() {
+  indexSolverResult++;
+  Solver::Validity res = solverResult[indexSolverResult - 1];
+  return res;
+}
+
+ref<Expr> Node::getExpr() {
+  indexConstraints++;
+  ref<Expr> expr = constraints.getExpr(indexConstraints - 1);
+  return expr;
 }
 
 /***/
@@ -154,6 +155,39 @@ ExecutionState::ExecutionState(KFunction *kf, KBlock *kb) :
   pushFrame(nullptr, kf);
 }
 
+ExecutionState::ExecutionState(uint32_t _id, uint32_t max_id) : 
+    initPC(nullptr),
+    pc(nullptr),
+    prevPC(nullptr),
+    stackBalance(0),
+    incomingBBIndex(-1),
+    depth(0),
+    constraints(constraintInfos),
+    ptreeNode(nullptr),
+    steppedInstructions(0),
+    steppedMemoryInstructions(0),
+    instsSinceCovNew(0),
+    coveredNew(false),
+    forkDisabled(false),
+    isolated(false),
+    targets(),
+    path(),
+    symbolicCounter(0),
+    backwardStepsLeftCounter(0),
+    failedBackwardStepsCounter(0){
+  id = _id;
+  // node.state_id = _id;
+  // while (nextID != max_id) {
+  //   nextID++;
+  // }
+  nextID = max_id;
+  // constraints = constraintInfos;
+}
+
+void ExecutionState::setMaxID(uint32_t max_id) {
+  nextID = max_id;
+} 
+
 ExecutionState::~ExecutionState() {
 
   for (const auto &cur_mergehandler: openMergeStack){
@@ -192,7 +226,6 @@ ExecutionState::ExecutionState(const ExecutionState& state):
                              : nullptr),
     coveredNew(state.coveredNew),
     forkDisabled(state.forkDisabled),
-    // node(state.node),
     isolated(state.isolated),
     targets(state.targets),
     path(state.path),

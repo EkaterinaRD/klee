@@ -676,6 +676,83 @@ void ObjectManager::loadLemmas() {
   // delete builder;
 }
 
+void ObjectManager::loadStates(ExecutionState *startState) {
+  auto DBStates = db->states_retrieve();
+  for (auto node : DBStates) {
+    
+    ExecutionState *newState;
+    
+    if (node.first == 0) {
+        newState = startState;
+        newState->setMaxID(maxIdState);
+    } else {
+        newState = new ExecutionState(node.first, maxIdState);
+        newState->node.state_id = newState->getID();
+
+        auto initLoc = parseInstruction(node.second.initLoc, module, DBHashMap);
+        newState->initPC = initLoc->parent->instructions;
+        while (newState->initPC != initLoc) {
+          ++newState->initPC;
+        }
+    }
+
+    newState->node.initPC = newState->initPC;
+
+    auto currLoc = parseInstruction(node.second.currLoc, module, DBHashMap);
+    newState->node.currPC = currLoc->parent->instructions;
+    while (newState->node.currPC != currLoc) {
+      ++newState->node.currPC;
+    }
+    // if (node.second.terminated == false) {
+
+    // }
+    
+    newState->node.countInstrs = node.second.countInstr;
+    newState->node.executionPath = node.second.choiceBranch;
+   
+    size_t index = 0;
+    while (index < node.second.solverResult.size()) {
+      if (node.second.solverResult[index] == '1') {
+        newState->node.solverResult.push_back(Solver::True);
+      } else if (node.second.solverResult[index] == '0') {
+        newState->node.solverResult.push_back(Solver::Unknown);
+      } else if (node.second.solverResult[index] == '-') {
+        index++;
+        if (node.second.solverResult[index] == '1') {
+          newState->node.solverResult.push_back(Solver::False);
+        }
+      }
+      index++;
+    }
+
+    ref<Path> path = parse(node.second.path, module, DBHashMap);
+    newState->node.path = *path;
+    
+    if (node.second.isolated == 1) {
+      newState->isolated = true;
+    }
+    newState->node.isolated = newState->isolated;
+
+    if (node.second.terminated == 0) {
+      newState->node.terminated = false;
+    } else {
+      newState->node.terminated = true;
+    }
+
+    for (auto expr_instr : node.second.expr_instr) {
+      auto expr = exprReverseDBMap[expr_instr.first];
+      auto instr = parseInstruction(expr_instr.second, module, DBHashMap);
+      // newState->addConstraint(expr, instr);
+      newState->node.addConstraint(expr, instr);
+    }
+    reExecutionStates.insert(newState);
+  }
+}
+
+std::set<ExecutionState *, ExecutionStateIDCompare> ObjectManager::getReExecutionStates() {
+  return reExecutionStates;
+}
+
 void ObjectManager::loadPobs() {
   auto DBPob = db->pobs_retrieve();
   for (auto pob : DBPob) {
@@ -701,7 +778,8 @@ void ObjectManager::loadPobs() {
     for (auto expr_instr : pob.second.expr_instr) {
       auto expr = exprReverseDBMap[expr_instr.first];
       auto instr = parseInstruction(expr_instr.second, module, DBHashMap);
-      newPob->condition.insert(expr, instr);
+      // newPob->condition.insert(expr, instr);
+      newPob->addCondition(expr, instr);
     }
     addedPobs.push_back(newPob);
   }
@@ -807,7 +885,7 @@ void ObjectManager::storeAllToDB() {
   storeLemmas();
 }
 
-void ObjectManager::loadAllFromDB() {
+void ObjectManager::loadAllFromDB(ExecutionState *startState) {
   builder = createDefaultExprBuilder();
   parser = expr::Parser::Create("DBParser", 
                                 llvm::MemoryBuffer::getMemBuffer("").get(),
@@ -833,6 +911,8 @@ void ObjectManager::loadAllFromDB() {
   // load all objects from DB
   loadLemmas();
 
+  loadStates(startState);
+
   auto childrens = db->pobsChildren_retrieve();
   for (const auto &pob_child : childrens) {
     pobsChildren[pob_child.first].insert(pob_child.second);
@@ -842,7 +922,6 @@ void ObjectManager::loadAllFromDB() {
   delete parser;
   delete builder;
 }
-
 
 
 

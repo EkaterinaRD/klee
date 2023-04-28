@@ -366,6 +366,34 @@ void Database::statesConstr_write(uint32_t state_id, uint64_t expr_id, std::stri
   }
 }
 
+std::vector<std::pair<uint64_t, std::string>> Database::statesConstr_retrieve(std::string state_id) {
+  std::vector<std::pair<uint64_t, std::string>> exprs_instr;
+  std::string sql = "SELECT expr_id, instr FROM statesConstr WHERE state_id = " + state_id;
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)){
+    case SQLITE_ROW: {
+      auto expr_id = sqlite3_column_int(st, 0);
+      auto instr_str = std::string(
+          reinterpret_cast<const char *>(sqlite3_column_text(st, 1))); 
+      exprs_instr.push_back(std::make_pair(expr_id, instr_str));
+      break;
+    }
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+  
+  return exprs_instr;
+}
+
 void Database::prop_write(uint32_t state_id, unsigned pob_id) {
   std::string sql = "INSERT INTO propagations (state_id, pob_id) "
                     "VALUES (" + std::to_string(state_id) + ", " 
@@ -657,11 +685,9 @@ std::map<unsigned, Database::DBPob> Database::pobs_retrieve() {
     exit(1);
 
   for (auto &pob : result) {
-    // auto exprs_id = pobConstr_retrieve(std::to_string(pob.first));
-    // for (auto id : exprs_id) {
-    //   // pob.second.exprs.push_back(id);
-    //   pob.second.expr_instr
-    // }
+    // auto exprs_instr = pobConstr_retrieve(std::to_string(pob.first));
+    // pob.second.expr_instr = exprs_instr;
+     pob.second.expr_instr = pobConstr_retrieve(std::to_string(pob.first));
 
     auto children_id = pobChildren_retrieve(std::to_string(pob.first));
     for (auto id : children_id) {
@@ -753,6 +779,53 @@ std::map<int64_t, std::string> Database::pobStack_retrieve(std::string pob_id) {
   return stack;
 }
 
+std::map<uint32_t, Database::DBState> Database::states_retrieve() {
+  std::map<uint32_t, Database::DBState> result;
+  std::string sql = "SELECT id, initLoc, currLoc, " 
+                    "choiceBranch, solverResult, path, "
+                    "countInstr, isolated, terminated "
+                    "FROM states";
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW: {
+      DBState state;
+      state.initLoc = std::string(
+            reinterpret_cast<const char *>(sqlite3_column_text(st, 1)));
+      state.currLoc = std::string(
+            reinterpret_cast<const char *>(sqlite3_column_text(st, 2)));
+      state.choiceBranch = std::string(
+            reinterpret_cast<const char *>(sqlite3_column_text(st, 3)));
+      state.solverResult = std::string(
+            reinterpret_cast<const char *>(sqlite3_column_text(st, 4)));
+      state.path = std::string(
+            reinterpret_cast<const char *>(sqlite3_column_text(st, 5)));
+      state.countInstr = sqlite3_column_int(st, 6);
+      state.isolated = sqlite3_column_int(st, 7);
+      state.terminated = sqlite3_column_int(st, 8);
+      
+      result.insert(std::make_pair(sqlite3_column_int(st, 0),state));
+      break;
+    }
+    case SQLITE_DONE: {
+      done = true;
+      break;
+    }
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+  for (auto &state : result) {
+    state.second.expr_instr = statesConstr_retrieve(std::to_string(state.first));
+  }
+  //pob.second.expr_instr = pobConstr_retrieve(std::to_string(pob.first));
+  return result;
+}
 
 void Database::lemma_delete(uint64_t id) {
   std::string sql = "DELETE FROM lemma WHERE id = " + std::to_string(id);

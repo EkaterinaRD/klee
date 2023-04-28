@@ -40,6 +40,18 @@ public:
     }
   };
 
+  struct DBState {
+    std::string initLoc;
+    std::string currLoc;
+    std::string choiceBranch;
+    std::string solverResult;
+    std::string path;
+    int countInstr;
+    int isolated;
+    int terminated;
+    std::vector<std::pair<uint64_t, std::string>> expr_instr;
+  };
+
   struct DBPob {
     unsigned root_id;
     unsigned parent_id;
@@ -88,6 +100,8 @@ public:
   std::vector<unsigned> pobChildren_retrieve(std::string pob_id);
   // std::vector<std::pair<uint64_t, uint64_t>> pobs
   std::map<int64_t, std::string> pobStack_retrieve(std::string pob_id);
+  std::map<uint32_t, DBState> states_retrieve();
+  std::vector<std::pair<uint64_t, std::string>> statesConstr_retrieve(std::string state_id);
 
   void lemma_delete(uint64_t);
   void hash_delete(std::string);

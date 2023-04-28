@@ -279,6 +279,7 @@ private:
   std::unique_ptr<llvm::raw_fd_ostream> summaryFile;
 
   std::unique_ptr<Summary> summary;
+  bool reExecutionMode = false;
 
   std::vector<Symbolic> *symbolics;
 
@@ -735,6 +736,8 @@ public:
   void addPob(ProofObligation *pob);
   void executeAction(ref<BidirectionalAction> action);
 
+  void reExecutionStates();
+
   KBlock *getStartLocation(const ExecutionState &state);
   KBlock *getLastExecutedLocation(const ExecutionState &state);
   KBlock *getCurrentLocation(const ExecutionState &state);
@@ -750,7 +753,7 @@ public:
   void initializeRoots(ExecutionState *initialState);
 };
 
-bool inReexecutionMode(ExecutionState *state);
+// bool inReexecutionMode(ExecutionState *state);
 
 } // namespace klee
 ;

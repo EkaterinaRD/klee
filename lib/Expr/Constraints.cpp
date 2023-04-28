@@ -284,6 +284,10 @@ klee::ConstraintSet::constraint_iterator Constraints::end() const {
   return constraints.end();
 }
 
+ref<Expr> ConstraintSet::getExpr(size_t index) {
+  return constraints[index];
+}
+
 size_t Constraints::size() const noexcept { return constraints.size(); }
 
 void Constraints::insert(const ref<Expr> &e, KInstruction *l) {
