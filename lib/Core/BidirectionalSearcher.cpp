@@ -251,6 +251,7 @@ void BidirectionalSearcher::updateBranch(
         llvm::errs() << "\n";
       }
       ExecutionState *copyState = state->copy();
+      // state->node.child.push_back(std::make_pair(copyState->getID(), state->prevPC));
       reached.push_back(copyState);
     }
   }

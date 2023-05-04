@@ -204,14 +204,17 @@ struct Node {
   Path path;
   bool isolated;
   bool terminated;
+  std::vector<std::pair<uint32_t, KInstIterator>> child;
 
   size_t indexSolverResult = 0;
   size_t indexConstraints = 0;
+  size_t indexChoiceBranch = 0;
 
   void appendSolverResult(Solver::Validity result);
   void addConstraint(ref<Expr> e, KInstruction *loc, bool *sat = 0);
   Solver::Validity getSolverResult();
   ref<Expr> getExpr();
+  char getChoice();
 
   std::string getValues();
 
@@ -331,7 +334,8 @@ public:
   bool forkDisabled;
 
   bool isolated;
-  bool reExecuted = false; 
+  // bool reExecuted = false;
+  bool transferToBB = false;
   Node node;
 
   /// @brief The target basic block that the state must achieve
@@ -357,6 +361,7 @@ public:
   ExecutionState(KFunction *kf, KBlock *kb);
   // only to create reex state
   ExecutionState(uint32_t _id, uint32_t max_id);
+  ExecutionState(ExecutionState &state, uint32_t _id, uint32_t max_id);
   // no copy assignment, use copy constructor
   ExecutionState &operator=(const ExecutionState &) = delete;
   // no move ctor
@@ -392,8 +397,10 @@ public:
   bool isEmpty() const;
   bool isCriticalPC() const;
   bool isIsolated() const;
+
   void setNode(bool terminated);
   void setMaxID(uint32_t max_id);
+  void setInitLocation(KInstruction *initLoc);
   // for debugging
   static void printCompareList(const ExecutionState &, const ExecutionState &, llvm::raw_ostream &);
   void print(llvm::raw_ostream & os) const;

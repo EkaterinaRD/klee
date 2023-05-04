@@ -169,6 +169,7 @@ void ObjectManager::addState(ExecutionState *state) {
 
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
+  // state->node.child.push_back(std::make_pair(newState->getID(), state->prevPC));
  
   addedStates.push_back(newState);
   setMaxIdState(state->getID());
@@ -685,15 +686,23 @@ void ObjectManager::loadStates(ExecutionState *startState) {
     if (node.first == 0) {
         newState = startState;
         newState->setMaxID(maxIdState);
+
+        newState->node.terminated = (node.second.terminated == 1) ? true : false; 
+
     } else {
-        newState = new ExecutionState(node.first, maxIdState);
+        newState = new ExecutionState(*startState, node.first, maxIdState);
         newState->node.state_id = newState->getID();
 
-        auto initLoc = parseInstruction(node.second.initLoc, module, DBHashMap);
-        newState->initPC = initLoc->parent->instructions;
-        while (newState->initPC != initLoc) {
-          ++newState->initPC;
+        newState->node.terminated = (node.second.terminated == 1) ? true : false;
+        bool isolated = (node.second.isolated == 1) ? true : false;
+        if (isolated) {
+          newState->isolated = true;
+          newState->node.isolated = newState->isolated;
+
+          auto initLoc = parseInstruction(node.second.initLoc, module, DBHashMap);
+          newState->setInitLocation(initLoc);
         }
+        
     }
 
     newState->node.initPC = newState->initPC;
@@ -703,9 +712,6 @@ void ObjectManager::loadStates(ExecutionState *startState) {
     while (newState->node.currPC != currLoc) {
       ++newState->node.currPC;
     }
-    // if (node.second.terminated == false) {
-
-    // }
     
     newState->node.countInstrs = node.second.countInstr;
     newState->node.executionPath = node.second.choiceBranch;
@@ -727,22 +733,10 @@ void ObjectManager::loadStates(ExecutionState *startState) {
 
     ref<Path> path = parse(node.second.path, module, DBHashMap);
     newState->node.path = *path;
-    
-    if (node.second.isolated == 1) {
-      newState->isolated = true;
-    }
-    newState->node.isolated = newState->isolated;
-
-    if (node.second.terminated == 0) {
-      newState->node.terminated = false;
-    } else {
-      newState->node.terminated = true;
-    }
 
     for (auto expr_instr : node.second.expr_instr) {
       auto expr = exprReverseDBMap[expr_instr.first];
       auto instr = parseInstruction(expr_instr.second, module, DBHashMap);
-      // newState->addConstraint(expr, instr);
       newState->node.addConstraint(expr, instr);
     }
     reExecutionStates.insert(newState);

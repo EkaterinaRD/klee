@@ -107,6 +107,12 @@ ref<Expr> Node::getExpr() {
   return expr;
 }
 
+char Node::getChoice() {
+  indexChoiceBranch++;
+  char choice = executionPath[indexChoiceBranch - 1];
+  return choice; 
+}
+
 /***/
 
 ExecutionState::ExecutionState(KFunction *kf) :
@@ -176,17 +182,65 @@ ExecutionState::ExecutionState(uint32_t _id, uint32_t max_id) :
     backwardStepsLeftCounter(0),
     failedBackwardStepsCounter(0){
   id = _id;
-  // node.state_id = _id;
-  // while (nextID != max_id) {
-  //   nextID++;
-  // }
   nextID = max_id;
-  // constraints = constraintInfos;
+}
+
+ExecutionState::ExecutionState(ExecutionState &state, uint32_t _id, uint32_t max_id) :
+    initPC(state.initPC),
+    pc(state.pc),
+    prevPC(state.prevPC),
+    stack(state.stack),
+    stackBalance(state.stackBalance),
+    incomingBBIndex(state.incomingBBIndex),
+    depth(state.depth),
+    multilevel(state.multilevel),
+    level(state.level),
+    transitionLevel(state.transitionLevel),
+    addressSpace(state.addressSpace),
+    constraintInfos(state.constraintInfos),
+    constraints(constraintInfos),
+    pathOS(state.pathOS),
+    symPathOS(state.symPathOS),
+    executionPath(state.executionPath),
+    coveredLines(state.coveredLines),
+    symbolics(state.symbolics),
+    arrayNames(state.arrayNames),
+    openMergeStack(state.openMergeStack),
+    steppedInstructions(state.steppedInstructions),
+    steppedMemoryInstructions(state.steppedMemoryInstructions),
+    instsSinceCovNew(state.instsSinceCovNew),
+    unwindingInformation(state.unwindingInformation
+                             ? state.unwindingInformation->clone()
+                             : nullptr),
+    coveredNew(state.coveredNew),
+    forkDisabled(state.forkDisabled),
+    isolated(state.isolated),
+    targets(state.targets),
+    path(state.path),
+    symbolicCounter(state.symbolicCounter),
+    returnValue(state.returnValue),
+    backwardStepsLeftCounter(0),
+    failedBackwardStepsCounter(0) {
+  id = _id;
+  nextID = max_id;
 }
 
 void ExecutionState::setMaxID(uint32_t max_id) {
   nextID = max_id;
 } 
+
+void ExecutionState::setInitLocation(KInstruction *initLoc) {
+  initPC = initLoc->parent->instructions;
+  while (initPC != initLoc) {
+    ++initPC;
+  }
+  pc = initPC;
+  prevPC = pc;
+  path = Path({initLoc->parent});
+  stack.clear();
+  pushFrame(nullptr, initLoc->parent->parent);
+  
+}
 
 ExecutionState::~ExecutionState() {
 
@@ -589,7 +643,7 @@ bool ExecutionState::isIsolated() const {
 void ExecutionState::setNode(bool terminated) {
   node.state_id = getID();
   node.initPC = initPC;
-  node.currPC = pc;
+  node.currPC = prevPC;
   node.countInstrs = steppedInstructions;
   node.executionPath = executionPath;
   node.constraints = constraintInfos;

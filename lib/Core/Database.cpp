@@ -98,12 +98,6 @@ void Database::create_schema() {
                "maxIdPob INTEGER"
                ")";
   finalize(sql_create, st);
-  // // Instructions
-  // sql_create = "CREATE TABLE instrs "
-  //              "(id INTEGER NOT NULL PRIMARY KEY,"
-  //              "location TEXT"
-  //              ")";
-  // finalize(sql_create, st);
   sql_create = "CREATE TABLE pobs"
                "(id INTEGER NOT NULL PRIMARY KEY,"
                "root INTEGER,"

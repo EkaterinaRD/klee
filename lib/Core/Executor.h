@@ -737,6 +737,7 @@ public:
   void executeAction(ref<BidirectionalAction> action);
 
   void reExecutionStates();
+  bool checkSafeguardingData(ExecutionState *state);
 
   KBlock *getStartLocation(const ExecutionState &state);
   KBlock *getLastExecutedLocation(const ExecutionState &state);
