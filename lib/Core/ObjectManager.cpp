@@ -15,7 +15,14 @@ llvm::cl::opt<bool> DebugSummary(
     llvm::cl::desc(""),
     llvm::cl::init(false),
     llvm::cl::cat(klee::DebugCat));
+
+llvm::cl::opt<bool> WriteToDB(
+    "write-to-db",
+    llvm::cl::desc(""),
+    llvm::cl::init(false),
+    llvm::cl::cat(klee::DebugCat));
 }
+
 
 #ifndef divider
 #define divider(n) std::string(n, '-') + "\n"
@@ -111,9 +118,9 @@ void ObjectManager::setResult() {
 
 void ObjectManager::addPob(ProofObligation *newPob) {
   addedPobs.push_back(newPob);
-  // db->pob_write(newPob);
-  storePob(newPob);
-  if (newPob->id > maxIdPob) {
+
+  if (WriteToDB) {
+    storePob(newPob);
     maxIdPob = newPob->id;
   }
 }
@@ -148,6 +155,10 @@ ExecutionState *ObjectManager::initBranch(ref<InitializeAction> action) {
     state->targets.insert(target);
   }
 
+  if (WriteToDB) {
+    state->node.targets = targets;
+  }
+
   result = new InitializeResult(loc, *state);
   return state;
 }
@@ -169,10 +180,9 @@ void ObjectManager::addState(ExecutionState *state) {
 
 ExecutionState *ObjectManager::branchState(ExecutionState *state) {
   ExecutionState *newState = state->branch();
-  // state->node.child.push_back(std::make_pair(newState->getID(), state->prevPC));
  
   addedStates.push_back(newState);
-  setMaxIdState(state->getID());
+  setMaxIdState(newState->getID());
 
   return newState;
 } 
@@ -247,7 +257,11 @@ void ObjectManager::setReachedStates() {
   std::vector<ExecutionState *> reachedStates = act->reached;
 
   for (auto state : reachedStates) {
-    saveState(*state, true);
+    if (WriteToDB) {
+      state->node.reached = true;
+      saveState(*state, true);
+    }
+    setMaxIdState(state->getID());
     addStateToPob(state);
   }
 }
@@ -341,9 +355,7 @@ void ObjectManager::updateResult() {
 
 
   //update pobs
-  for (auto pob : addedPobs) {
-    pobs.push_back(pob);
-  }
+  pobs.insert(addedPobs.begin(), addedPobs.end());
   for (auto pob : removedPobs) {
     pob->detachParent();
     delete pob;
@@ -545,26 +557,6 @@ void ObjectManager::storeLemmas() {
         assert(exprDBMap.count(constraint) && "No expr in DB");
         db->constraint_write(idConstr, idLemma);
 
-        // std::vector<const Array *> arrays;
-        // klee::findSymbolicObjects(constraint, arrays);
-        // for (auto array : arrays) {
-        //   if (!arrayDBMap.count(array))
-        //     arrayDBMap[array] = db->array_write(array);
-        //   uint64_t idArray = arrayDBMap[array];
-        //   assert(exprDBMap.count(constraint) && "No expr in DB");
-        //   assert(arrayDBMap.count(array) && "No array in DB");
-        //   db->arraymap_write(idArray, idConstr);
-        // }
-        // for (auto array : arrays) {
-        //   assert(arrayDBMap.count(array) && "No child in DB");
-        //   uint64_t idChild = arrayDBMap.count(array);
-        //   for (auto parent : array->parents) {
-        //     assert(arrayDBMap.count(parent) && "No parent in DB");
-        //     uint64_t idParent = arrayDBMap.count(parent);
-        //     db->parent_write(idChild, idParent);
-        //   }
-        // }
-
         storeArray(constraint);
 
 
@@ -624,26 +616,8 @@ void ObjectManager::makeExprs(const std::map<uint64_t, std::string> &exprs) {
 }
 
 void ObjectManager::loadLemmas() {
-  // builder = createDefaultExprBuilder();
-  // parser = expr::Parser::Create("DBParser", 
-  //                               llvm::MemoryBuffer::getMemBuffer("").get(),
-  //                               builder, arrayCache, false);
-
-
-  // auto arrays = db->arrays_retrieve();
-  // auto parents = db->parents_retrieve();
-  // for (const auto &parent : parents) {
-  //   arrayParentMap[parent.first].insert(parent.second);
-  // }
-  // for (const auto &array : arrays) {
-  //   makeArray(arrays, array.first);
-  // }
-
-  // auto exprs = db->exprs_retrieve();
-  // makeExprs(exprs);
 
   auto DBLemmas = db->lemmas_retrieve();
-  // auto DBHashMap = db->functionhash_retrieve();
   for (const auto &lemma : DBLemmas) {
     ref<Path> path = parse(lemma.second.path, module, DBHashMap);
     if (!path) {
@@ -673,21 +647,20 @@ void ObjectManager::loadLemmas() {
   db->exprs_purge();
   db->arrays_purge();
 
-  // delete parser;
-  // delete builder;
 }
 
 void ObjectManager::loadStates(ExecutionState *startState) {
   auto DBStates = db->states_retrieve();
   for (auto node : DBStates) {
     
-    ExecutionState *newState;
+    ExecutionState *newState = nullptr;
     
     if (node.first == 0) {
         newState = startState;
         newState->setMaxID(maxIdState);
 
         newState->node.terminated = (node.second.terminated == 1) ? true : false; 
+        newState->node.isolated = newState->isolated;
 
     } else {
         newState = new ExecutionState(*startState, node.first, maxIdState);
@@ -701,6 +674,8 @@ void ObjectManager::loadStates(ExecutionState *startState) {
 
           auto initLoc = parseInstruction(node.second.initLoc, module, DBHashMap);
           newState->setInitLocation(initLoc);
+        } else {
+          newState->node.isolated = false;
         }
         
     }
@@ -715,6 +690,7 @@ void ObjectManager::loadStates(ExecutionState *startState) {
     
     newState->node.countInstrs = node.second.countInstr;
     newState->node.executionPath = node.second.choiceBranch;
+    // newState->executionPath = newState->node.executionPath;
    
     size_t index = 0;
     while (index < node.second.solverResult.size()) {
@@ -730,17 +706,52 @@ void ObjectManager::loadStates(ExecutionState *startState) {
       }
       index++;
     }
+    // newState->solverResult = newState->node.solverResult;
 
     ref<Path> path = parse(node.second.path, module, DBHashMap);
     newState->node.path = *path;
+
+    newState->node.reached = (node.second.reached == 1) ? true : false;
 
     for (auto expr_instr : node.second.expr_instr) {
       auto expr = exprReverseDBMap[expr_instr.first];
       auto instr = parseInstruction(expr_instr.second, module, DBHashMap);
       newState->node.addConstraint(expr, instr);
     }
+
+    if (newState->isIsolated()) {
+      std::vector<std::string> targets = db->targets_retrieve(std::to_string(node.first));
+      for (auto t : targets) {
+        auto target = parseLocation(t, module, DBHashMap);
+        newState->targets.insert(Target(target));
+      }
+    }
+
+
     reExecutionStates.insert(newState);
   }
+  maxIdState--;
+}
+
+void ObjectManager::addReExecutionState(ExecutionState *state) {
+  // if detect dev delete from db
+  // addState(state);
+  if (!state->isIsolated()) {
+    setAction(new ForwardAction(state));
+  } else {
+    // if (state->node.terminated) {
+    //   setAction(new ReachedStatesAction({state}));
+    // } else {
+    //   setAction(new BranchAction(state));
+    // }
+    if (state->node.reached) {
+      setAction(new ReachedStatesAction({state}));
+      setReachedStates();
+    } else {
+      setAction(new BranchAction(state));
+    }
+  }
+  updateResult();
 }
 
 std::set<ExecutionState *, ExecutionStateIDCompare> ObjectManager::getReExecutionStates() {
@@ -775,13 +786,24 @@ void ObjectManager::loadPobs() {
       // newPob->condition.insert(expr, instr);
       newPob->addCondition(expr, instr);
     }
-    addedPobs.push_back(newPob);
+
+    auto pobPropC = propsCount[newPob->id];
+    for (auto state_count : pobPropC) {
+      for (auto state : reExecutionStates) {
+        if (state_count.first == state->getID()) {
+          newPob->propagationCount[state] = state_count.second;
+        }
+      }
+    }
+
+    // pobs.push_back(newPob);
+    pobs.insert(newPob);
   }
-  for (auto pob : addedPobs) {
+  for (auto pob : pobs) {
     auto pob_id = pob->id;
     auto children = pobsChildren[pob_id];
     for (auto child_id : children) {
-      for (auto child_pob : addedPobs) {
+      for (auto child_pob : pobs) {
         if (child_pob->id == child_id) {
           pob->children.insert(child_pob);
           child_pob->parent = pob;
@@ -789,17 +811,18 @@ void ObjectManager::loadPobs() {
       }
     }
   }
-  for (auto pob : addedPobs) {
+  for (auto pob : pobs) {
     auto pob_id = pob->id;
     auto descendants = pobsRoot[pob_id];
     for (auto child_id : descendants) {
-      for (auto desc_pob : addedPobs) {
+      for (auto desc_pob : pobs) {
         if (desc_pob->id == child_id) {
           desc_pob->root = pob;
         }
       }
     }
   }
+  maxIdPob--;
 }
 
 void ObjectManager::storeStates() {
@@ -836,17 +859,17 @@ void ObjectManager::storeStates() {
 
     values += std::to_string(node.countInstrs) + ", "; // countInstr
     
-    if (node.isolated == true) { // isolated
-      values += std::to_string(1) + ", ";
-    } else {
-      values += std::to_string(0) + ", ";
-    }
+    // isolated
+    std::string isolated = (node.isolated) ? std::to_string(1) : std::to_string(0);
+    values += isolated + ", ";
 
-    if (node.terminated == true) { // terminated
-      values += std::to_string(1);
-    } else {
-      values += std::to_string(0);
-    }
+    // terminated
+    std::string terminated = (node.terminated) ? std::to_string(1) : std::to_string(0);
+    values += terminated + ", ";
+
+    // reached (for isolated states)
+    std::string reached = (node.reached) ? std::to_string(1) : std::to_string(0);
+    values += reached;
 
     db->state_write(values);
 
@@ -861,6 +884,11 @@ void ObjectManager::storeStates() {
       db->statesConstr_write(node.state_id, exprDBMap[e], str_instr);
       storeArray(e);
     }
+
+    for (auto t : node.targets) { // targets
+      std::string t_str = t.block->toStringLocation();
+      db->target_write(node.state_id, t_str);
+    }
   }
 }
 
@@ -872,11 +900,15 @@ void ObjectManager::storePropagations() {
 
 void ObjectManager::storeAllToDB() {
   // write all objects to DB
-  db->maxId_write(maxIdState, maxIdPob);
+  if (WriteToDB) {
+    maxIdState++;
+    maxIdPob++;
+    db->maxId_write(maxIdState, maxIdPob);
 
-  storeStates();
-  storePropagations();
-  storeLemmas();
+    storeStates();
+    storePropagations();
+    storeLemmas();
+  }
 }
 
 void ObjectManager::loadAllFromDB(ExecutionState *startState) {
@@ -905,8 +937,11 @@ void ObjectManager::loadAllFromDB(ExecutionState *startState) {
   // load all objects from DB
   loadLemmas();
 
+  // propsCount = db->propsCount_retrieve();
+
   loadStates(startState);
 
+  propsCount = db->propsCount_retrieve();
   auto childrens = db->pobsChildren_retrieve();
   for (const auto &pob_child : childrens) {
     pobsChildren[pob_child.first].insert(pob_child.second);
@@ -917,7 +952,46 @@ void ObjectManager::loadAllFromDB(ExecutionState *startState) {
   delete builder;
 }
 
+void ObjectManager::setPropagations() {
+  
+  auto reExprops = propagations;
+  for (auto prop : reExprops) {
+    bool bck_success = false;
+    auto pob = prop.pob;
+    auto state = prop.state;
 
+    for (auto p : pobs) {
+      if (p->parent) {
+        if ((p->parent->id == pob->id) && (p->propagationCount[state] > 0)) {
+          addedPobs.push_back(p);
+          bck_success = true;
+          break;
+        }
+      }
+    }
+
+    if (bck_success) {
+      removedProgations.push_back(prop);
+      setAction(new BackwardAction(state, pob));
+      updateResult();
+    } else {
+      bool lemma_exists = false;
+      for (auto lemma1 : pathMap[state->path]) {
+        for (auto lemma2 : locationMap[pob->location]) {
+          if (lemma1 == lemma2) {
+            lemma_exists = true;
+            break;
+          }
+        }
+      }
+      if (lemma_exists) {
+        removedProgations.push_back(prop);
+        setAction(new BackwardAction(state, pob));
+        updateResult();
+      }
+    }
+  } 
+}
 
 ObjectManager::~ObjectManager() {
   pobs.clear();

@@ -1038,7 +1038,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
           current.pathOS << "1";
         }
       }
-
+      current.appendSolverResult(solverResult);
       return StatePair(&current, 0);
     } else if (solverResult == Solver::False) {
       if (!isInternal) {
@@ -1049,7 +1049,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
           current.pathOS << "0";
         }
       }
-
+      current.appendSolverResult(solverResult);
       return StatePair(0, &current);
     } else {
 
@@ -1066,6 +1066,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
           }
         }
         addConstraint(current, condition);
+        current.appendSolverResult(solverResult);
         return StatePair(&current, 0);
       } else if (choice == '0') {
         current.coveredNew = false;
@@ -1080,6 +1081,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
           }
         }
         addConstraint(current, Expr::createIsZero(condition));
+        current.appendSolverResult(solverResult);
         return StatePair(0, &current);
       }
     }
@@ -1218,7 +1220,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
       }
     }
 
-    current.node.appendSolverResult(res);
+    current.appendSolverResult(res);
     return StatePair(&current, 0);
   } else if (res == Solver::False) {
     if (!isInternal) {
@@ -1228,7 +1230,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
       }
     }
 
-    current.node.appendSolverResult(res);
+    current.appendSolverResult(res);
     return StatePair(0, &current);
   } else {
     TimerStatIncrementer timer(stats::forkTime);
@@ -1307,8 +1309,8 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
       return StatePair(0, 0);
     }
 
-    trueState->node.appendSolverResult(res);
-    falseState->node.appendSolverResult(res);
+    trueState->appendSolverResult(res);
+    falseState->appendSolverResult(res);
     return StatePair(trueState, falseState);
   }
 }
@@ -3863,7 +3865,10 @@ void Executor::terminateState(ExecutionState &state) {
 
 void Executor::terminateStateEarly(ExecutionState &state,
                                    const Twine &message) {
-  objectManager.saveState(state, false);
+  // objectManager.saveState(state, false);
+  if (!reExecutionMode) {
+    objectManager.saveState(state, false);
+  }
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
        (AlwaysOutputSeeds && seedMap->count(&state))))
@@ -5521,16 +5526,29 @@ KBlock *Executor::calculateTargetByBlockHistory(ExecutionState &state) {
 void Executor::addPob(ProofObligation *pob) { objectManager.addPob(pob); }
 
 void Executor::reExecutionStates() {
+
   auto statesDB = objectManager.getReExecutionStates();
   for (ExecutionState *reExState : statesDB) {
     bool reExecution = true;
-    // size_t indexPath;
     if (reExState->isIsolated()) {
       ExecutionState *initialState = objectManager.getInitialState();
       if (reExState->initPC != initialState->initPC) {
         prepareSymbolicArgs(*reExState, reExState->stack.back());
       }
+      if (!reExState->node.reached) {
+        processForest->addRoot(reExState);
+        objectManager.addState(reExState);
+        objectManager.setAction(new BranchAction(nullptr));
+      } else {
+        objectManager.setAction(new ReachedStatesAction({reExState}));
+      }
+    } else {
+      if (reExState->getID() != 0)
+        processForest->addRoot(reExState);
+      objectManager.addState(reExState);
+      objectManager.setAction(new ForwardAction(nullptr));
     }
+    objectManager.updateResult();
     while (reExecution) {
       goForward(new ForwardAction(reExState));
       if (reExState->transferToBB) {
@@ -5550,11 +5568,12 @@ void Executor::reExecutionStates() {
             if (reExState->node.terminated) {
               if (!reExState->isIsolated()) {
                 terminateStateOnExit(*reExState);
+                objectManager.updateResult();
               } else {
-                objectManager.addState(reExState);
+                objectManager.addReExecutionState(reExState);
               }
             } else {
-              objectManager.addState(reExState);
+              objectManager.addReExecutionState(reExState);
             }
           } else {
             // detect devergence and delete from db
@@ -5565,7 +5584,6 @@ void Executor::reExecutionStates() {
 
     }
   }
-  reExecutionMode = false;
 }
 
 bool Executor::checkSafeguardingData(ExecutionState *state) {
@@ -5581,95 +5599,10 @@ bool Executor::checkSafeguardingData(ExecutionState *state) {
   }
 }
 
-void Executor::run(ExecutionState &state) {
-  timers.reset();
-
-  objectManager.setInitialAndEmtySt(&state);
-  if (SummaryDB != "") {
-    reExecutionMode = true;
-    objectManager.loadAllFromDB(&state);
-    reExecutionStates();
-  } else {
-    objectManager.addState(&state);
-  }
-
-  // objectManager.addState(&state);
-
+void Executor::setSearcher() {
   SearcherConfig cfg;
   cfg.executor = this;
   cfg.objectManager = &objectManager;
-
-  if (usingSeeds) {
-    std::vector<SeedInfo> &v = seedMap->at(&state);
-
-    for (std::vector<KTest *>::const_iterator it = usingSeeds->begin(),
-                                              ie = usingSeeds->end();
-         it != ie; ++it)
-      v.push_back(SeedInfo(*it));
-
-    int lastNumSeeds = usingSeeds->size() + 10;
-    time::Point lastTime, startTime = lastTime = time::getWallTime();
-    ExecutionState *lastState = 0;
-    while (!seedMap->empty()) {
-      if (haltExecution) {
-        doDumpStates();
-        return;
-      }
-
-      std::map<ExecutionState *, std::vector<SeedInfo>>::iterator it =
-          seedMap->upperBound(lastState);
-      if (it == seedMap->end())
-        it = seedMap->begin();
-      lastState = it->first;
-      ExecutionState &state = *lastState;
-      KInstruction *ki = state.pc;
-      objectManager.setAction(new ForwardAction(&state));
-      stepInstruction(state);
-
-      executeInstruction(state, ki);
-      timers.invoke();
-      if (::dumpStates)
-        dumpStates();
-      if (::dumpPForest)
-        dumpPForest();
-      objectManager.updateResult();
-
-      if ((stats::instructions % 1000) == 0) {
-        int numSeeds = 0, numStates = 0;
-        for (std::map<ExecutionState *, std::vector<SeedInfo>>::iterator
-                 it = seedMap->begin(),
-                 ie = seedMap->end();
-             it != ie; ++it) {
-          numSeeds += it->second.size();
-          numStates++;
-        }
-        const auto time = time::getWallTime();
-        const time::Span seedTime(SeedTime);
-        if (seedTime && time > startTime + seedTime) {
-          klee_warning("seed time expired, %d seeds remain over %d states",
-                       numSeeds, numStates);
-          break;
-        } else if (numSeeds <= lastNumSeeds - 10 ||
-                   time - lastTime >= time::seconds(10)) {
-          lastTime = time;
-          lastNumSeeds = numSeeds;
-          klee_message("%d seeds remaining over: %d states", numSeeds,
-                       numStates);
-        }
-      }
-    }
-
-    klee_message("seeding done (%d states remain)",
-                 (int)objectManager.sizeStates());
-
-    if (OnlySeed) {
-      doDumpStates();
-      return;
-    }
-  }
-
-  objectManager.setAction(new ForwardAction(nullptr));
-  objectManager.updateResult();
 
   if (ExecutionMode == ExecutionKind::Forward) {
     searcher = std::make_unique<ForwardOnlySearcher>(cfg);
@@ -5679,6 +5612,36 @@ void Executor::run(ExecutionState &state) {
     searcher = std::make_unique<BidirectionalSearcher>(cfg);
   }
   objectManager.subscribe(searcher.get());
+}
+
+void Executor::run(ExecutionState &state) {
+  timers.reset();
+
+  objectManager.setInitialAndEmtySt(&state);
+  
+  if (SummaryDB != "") {
+  
+    reExecutionMode = true;
+    objectManager.loadAllFromDB(&state);
+    setSearcher();
+    reExecutionStates();
+    objectManager.setPropagations();
+
+    reExecutionMode = false;
+    
+  
+  } else {
+    objectManager.addState(&state);
+
+    if (usingSeeds) {
+      seed(state);
+    }
+
+    objectManager.setAction(new ForwardAction(nullptr));
+    objectManager.updateResult();
+
+    setSearcher();
+  }
 
   while (!haltExecution) {
     auto action = searcher->selectAction();

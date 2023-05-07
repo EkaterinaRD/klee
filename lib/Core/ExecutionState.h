@@ -204,17 +204,19 @@ struct Node {
   Path path;
   bool isolated;
   bool terminated;
-  std::vector<std::pair<uint32_t, KInstIterator>> child;
+  std::set<Target> targets;
+  bool reached = false;
 
   size_t indexSolverResult = 0;
   size_t indexConstraints = 0;
   size_t indexChoiceBranch = 0;
 
-  void appendSolverResult(Solver::Validity result);
+  // void appendSolverResult(Solver::Validity result);
   void addConstraint(ref<Expr> e, KInstruction *loc, bool *sat = 0);
   Solver::Validity getSolverResult();
   ref<Expr> getExpr();
   char getChoice();
+  void clearNode();
 
   std::string getValues();
 
@@ -290,6 +292,8 @@ public:
   /// @brief History of state branching including switches
   std::string executionPath;
 
+  std::vector<Solver::Validity> solverResult;
+
   /// @brief Set containing which lines in which files are covered by this state
   std::map<const std::string *, std::set<std::uint32_t>> coveredLines;
 
@@ -326,6 +330,8 @@ public:
 
   /// @brief the state id
   std::uint32_t id {0};
+
+  std::uint32_t parentID {0};
 
   /// @brief Whether a new instruction was covered in this state
   bool coveredNew;
@@ -401,6 +407,7 @@ public:
   void setNode(bool terminated);
   void setMaxID(uint32_t max_id);
   void setInitLocation(KInstruction *initLoc);
+  void appendSolverResult(Solver::Validity result);
   // for debugging
   static void printCompareList(const ExecutionState &, const ExecutionState &, llvm::raw_ostream &);
   void print(llvm::raw_ostream & os) const;

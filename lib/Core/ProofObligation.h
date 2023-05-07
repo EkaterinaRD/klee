@@ -48,6 +48,7 @@ public:
     }
   }
 
+  // only for re-execution
   ProofObligation(int _id) : id(_id) {}; 
 
   explicit ProofObligation(ProofObligation *pob)

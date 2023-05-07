@@ -86,7 +86,7 @@ void StackFrame::print() const {
 
 /***/
 
-void Node::appendSolverResult(Solver::Validity result) {
+void ExecutionState::appendSolverResult(Solver::Validity result) {
   solverResult.push_back(result);
 }
 
@@ -111,6 +111,19 @@ char Node::getChoice() {
   indexChoiceBranch++;
   char choice = executionPath[indexChoiceBranch - 1];
   return choice; 
+}
+
+void Node::clearNode() {
+  state_id = 0;
+  initPC = nullptr;
+  currPC = nullptr;
+  countInstrs = 0;
+  executionPath = "";
+  solverResult.clear();
+  path = Path();
+  indexSolverResult = 0;
+  indexConstraints = 0;
+  indexChoiceBranch = 0;
 }
 
 /***/
@@ -268,6 +281,7 @@ ExecutionState::ExecutionState(const ExecutionState& state):
     pathOS(state.pathOS),
     symPathOS(state.symPathOS),
     executionPath(state.executionPath),
+    solverResult(state.solverResult),
     coveredLines(state.coveredLines),
     symbolics(state.symbolics),
     arrayNames(state.arrayNames),
@@ -650,6 +664,7 @@ void ExecutionState::setNode(bool terminated) {
   node.path = path;
   node.isolated = isIsolated();
   node.terminated = terminated;
+  node.solverResult = solverResult;
 }
 
 void ExecutionState::printCompareList(const ExecutionState &fst, const ExecutionState &snd, 

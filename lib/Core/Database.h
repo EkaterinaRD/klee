@@ -49,6 +49,7 @@ public:
     int countInstr;
     int isolated;
     int terminated;
+    int reached;
     std::vector<std::pair<uint64_t, std::string>> expr_instr;
   };
 
@@ -79,6 +80,8 @@ public:
   void pobStack_write(const ProofObligation *pob);
   void maxId_write(std::uint32_t maxIdState, unsigned maxIdPob);
   void state_write(std::string values);
+  void target_write(std::uint32_t state_id, std::string target);
+  void child_write(std::uint32_t state_id, std::uint32_t child_id, std::string location);
   void statesConstr_write(uint32_t state_id, uint64_t expr_id, std::string instr);
   void prop_write(uint32_t state_id, unsigned pob_id);
 
@@ -98,13 +101,15 @@ public:
   // std::vector<uint64_t> pobConstr_retrieve(std::string pob_id);
   std::vector<std::pair<uint64_t, std::string>> pobConstr_retrieve(std::string pob_id);
   std::vector<unsigned> pobChildren_retrieve(std::string pob_id);
-  // std::vector<std::pair<uint64_t, uint64_t>> pobs
+  std::map<uint64_t, std::map<std::uint32_t, unsigned>> propsCount_retrieve();
   std::map<int64_t, std::string> pobStack_retrieve(std::string pob_id);
   std::map<uint32_t, DBState> states_retrieve();
+  std::vector<std::string> targets_retrieve(std::string pob_id);
   std::vector<std::pair<uint64_t, std::string>> statesConstr_retrieve(std::string state_id);
 
   void lemma_delete(uint64_t);
   void hash_delete(std::string);
+  void state_delete(std::uint32_t state_id);
 
   void exprs_purge();
   void arrays_purge();

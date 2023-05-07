@@ -153,6 +153,8 @@ public:
 
   typedef std::pair<ExecutionState *, ExecutionState *> StatePair;
 
+  bool reExecutionMode = false;
+
 private:
   ObjectManager objectManager;
 
@@ -279,7 +281,6 @@ private:
   std::unique_ptr<llvm::raw_fd_ostream> summaryFile;
 
   std::unique_ptr<Summary> summary;
-  bool reExecutionMode = false;
 
   std::vector<Symbolic> *symbolics;
 
@@ -300,6 +301,7 @@ private:
   void executeInstruction(ExecutionState &state, KInstruction *ki);
 
   void seed(ExecutionState &initialState);
+  void setSearcher();
   void run(ExecutionState &initialState);
 
   // Given a concrete object in our [klee's] address space, add it to

@@ -59,7 +59,8 @@ private:
   std::set<ExecutionState *, ExecutionStateIDCompare> targetedStates;
 
   // 4. Pobs
-  std::vector<ProofObligation *> pobs;
+  // std::vector<ProofObligation *> pobs;
+  std::set<ProofObligation *, ProofObligationIDCompare> pobs;
   std::vector<ProofObligation *> addedPobs;
   std::vector<ProofObligation *> removedPobs;
 
@@ -97,9 +98,12 @@ private:
   std::map<uint64_t, std::set<uint64_t>> pobsChildren;
   // std::vector<std::pair<uint64_t, uint64_t>> pobsRoot;
   std::map<uint64_t, std::set<uint64_t>> pobsRoot;
+  // std::vector<ProofObligation *> reExecutionPobs;
   // 7.5 states
   std::vector<Node> statesDB;
   std::set<ExecutionState *, ExecutionStateIDCompare> reExecutionStates;
+  // 7.6 propagationsCount
+  std::map<uint64_t, std::map<std::uint32_t, unsigned>> propsCount;
 
 public:
   ObjectManager();
@@ -153,6 +157,8 @@ public:
   void makeArray(const std::map<uint64_t, std::string> &arrays, uint64_t id);
   void makeExprs(const std::map<uint64_t, std::string> &exprs);
   void saveState(ExecutionState &state, bool terminated);
+  void addReExecutionState(ExecutionState *state);
+  void setPropagations();
   
   ~ObjectManager();
 
@@ -176,7 +182,6 @@ private:
   void storeArray(ref<Expr> e);
   void loadPobs();
   void loadStates(ExecutionState *startState);
-  // void loadPropagations();
   void loadLemmas();
 };
 } // namespace klee

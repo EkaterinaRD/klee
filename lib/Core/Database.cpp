@@ -94,7 +94,8 @@ void Database::create_schema() {
                "UNIQUE(function, hash))";
   finalize(sql_create, st);
   sql_create = "CREATE TABLE maxID"
-               "(maxIdState INTEGER,"
+               "(id INTEGER NOT NULL PRIMARY KEY,"
+               "maxIdState INTEGER,"
                "maxIdPob INTEGER"
                ")";
   finalize(sql_create, st);
@@ -138,7 +139,8 @@ void Database::create_schema() {
                "path TEXT,"
                "countInstr INTEGER,"
                "isolated INTEGER,"
-               "terminated INTEGER"
+               "terminated INTEGER,"
+               "reached INTEGER"
                ")";
   finalize(sql_create, st);    
   // map<ExecutionState *, unsigned> propagationCount;
@@ -160,6 +162,18 @@ void Database::create_schema() {
   sql_create = "CREATE TABLE propagations"
                "(state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
                "pob_id INTEGER REFERENCES pobs(id) ON DELETE CASCADE"
+               ")";
+  finalize(sql_create, st);
+  // target gor isolated states
+  sql_create = "CREATE TABLE targets"
+               "(state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
+               "target TEXT"
+               ")";
+  finalize(sql_create, st); 
+  sql_create = "CREATE TABLE child"
+               "(state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
+               "child_id INTEGER REFERENCES states(id) ON DELETE CASCADE,"
+               "location TEXT"
                ")";
   finalize(sql_create, st);
 }
@@ -249,7 +263,7 @@ void Database::pob_write(ProofObligation *pob) {
     parent_id = "NULL, ";
   } else {
     parent_id = std::to_string(pob->parent->id) + ", ";
-    sql = "INSERT INTO pobsChildren (pob_id, child_id) "
+    sql = "INSERT OR REPLACE INTO pobsChildren (pob_id, child_id) "
                   "VALUES (" + parent_id  + pob_id + ");";
     if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
       exit(1);
@@ -333,8 +347,10 @@ void Database::pobsConstr_write(unsigned pob_id, uint64_t expr_id, std::string i
 }
 
 void Database::maxId_write(std::uint32_t maxIdState, unsigned maxIdPob) {
-  std::string sql = "INSERT INTO maxID (maxIdState, maxIdPob) " 
-                    "VALUES (" + std::to_string(maxIdState) + ", "
+
+  std::string sql = "INSERT OR REPLACE INTO maxID (id, maxIdState, maxIdPob) " 
+                    "VALUES (" + std::to_string(1) + ", "
+                               + std::to_string(maxIdState) + ", "
                                + std::to_string(maxIdPob) + ");";
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
@@ -342,8 +358,27 @@ void Database::maxId_write(std::uint32_t maxIdState, unsigned maxIdPob) {
 }
 
 void Database::state_write(std::string values) {
-  std::string sql = "INSERT INTO states (id, initLoc, currLoc, choiceBranch, solverResult, path, countInstr, isolated, terminated) "
+  std::string sql = "INSERT OR REPLACE INTO states (id, initLoc, currLoc, choiceBranch, solverResult, path, countInstr, isolated, terminated, reached) "
                     "VALUES (" + values + ");";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::target_write(std::uint32_t state_id, std::string target) {
+  std::string sql = "INSERT INTO targets (state_id, target) "
+                    "VALUES (" + std::to_string(state_id) + ", " + 
+                    "'" + target + "'" + ")";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::child_write(std::uint32_t state_id, std::uint32_t child_id, std::string location) {
+  std::string sql = "INSERT INTO child (state_id, child_id, location) "
+                "VALUES (" + std::to_string(state_id) + ", " +
+                             std::to_string(child_id) + ", " +
+                             "'" + location + "'" + ")";
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }
@@ -724,6 +759,35 @@ std::vector<std::pair<uint64_t, std::string>> Database::pobConstr_retrieve(std::
   return exprs_instr;
 }
 
+std::map<uint64_t, std::map<std::uint32_t, unsigned>> Database::propsCount_retrieve() {
+  std::map<uint64_t, std::map<std::uint32_t, unsigned>> result;
+  std::string sql = "SELECT pob_id, state_id, count FROM propagationCount;";
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)){
+    case SQLITE_ROW: {
+      auto pob_id = sqlite3_column_int(st, 0);
+      auto state_id = sqlite3_column_int(st, 1);
+      auto count = sqlite3_column_int(st, 2);
+
+      result[pob_id].insert(std::make_pair(state_id, count));
+      break;
+    }
+    case SQLITE_DONE:
+      done = true;
+      break;
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+  return result;
+}
+
 std::vector<unsigned> Database::pobChildren_retrieve(std::string pob_id) {
   std::vector<unsigned> childre_id;
   std::string sql = "SELECT child_id FROM pobsChildren WHERE pob_id = " + pob_id;
@@ -777,7 +841,7 @@ std::map<uint32_t, Database::DBState> Database::states_retrieve() {
   std::map<uint32_t, Database::DBState> result;
   std::string sql = "SELECT id, initLoc, currLoc, " 
                     "choiceBranch, solverResult, path, "
-                    "countInstr, isolated, terminated "
+                    "countInstr, isolated, terminated, reached "
                     "FROM states";
   sqlite3_stmt *st;
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -801,6 +865,7 @@ std::map<uint32_t, Database::DBState> Database::states_retrieve() {
       state.countInstr = sqlite3_column_int(st, 6);
       state.isolated = sqlite3_column_int(st, 7);
       state.terminated = sqlite3_column_int(st, 8);
+      state.reached = sqlite3_column_int(st, 9);
       
       result.insert(std::make_pair(sqlite3_column_int(st, 0),state));
       break;
@@ -821,6 +886,34 @@ std::map<uint32_t, Database::DBState> Database::states_retrieve() {
   return result;
 }
 
+std::vector<std::string> Database::targets_retrieve(std::string state_id) {
+  std::vector<std::string> result;
+  std::string sql = "SELECT target FROM targets WHERE state_id = " + state_id;
+  sqlite3_stmt *st;
+  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+  bool done = false;
+  while (!done) {
+    switch (sqlite3_step(st)) {
+    case SQLITE_ROW: {
+      std::string target = std::string(
+            reinterpret_cast<const char *>(sqlite3_column_text(st, 0)));
+      result.push_back(target);
+      break;
+    }
+    case SQLITE_DONE: {
+      done = true;
+      break;
+    }
+    }
+  }
+  if (sqlite3_finalize(st) != SQLITE_OK)
+    exit(1);
+
+  return result;
+}
+
 void Database::lemma_delete(uint64_t id) {
   std::string sql = "DELETE FROM lemma WHERE id = " + std::to_string(id);
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
@@ -830,6 +923,40 @@ void Database::lemma_delete(uint64_t id) {
 
 void Database::hash_delete(std::string name) {
   std::string sql = "DELETE FROM functionhash WHERE function = '" + name + "'";
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+}
+
+void Database::state_delete(std::uint32_t state_id) {
+
+  std::string sql = "DELETE FROM propagationCount WHERE state_id = " + std::to_string(state_id);
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+
+  sql = "DELETE FROM statesConstr WHERE state_id = " + std::to_string(state_id);
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+
+  sql = "DELETE FROM propagations WHERE state_id = " + std::to_string(state_id);
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+
+  sql = "DELETE FROM targets WHERE state_id = " + std::to_string(state_id);
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+
+  sql = "DELETE FROM child WHERE state_id = " + std::to_string(state_id);
+  if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+    exit(1);
+  }
+
+
+  sql = "DELETE FROM states WHERE id = " + std::to_string(state_id);
   if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
     exit(1);
   }
