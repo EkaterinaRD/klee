@@ -651,6 +651,12 @@ void ObjectManager::loadLemmas() {
 
 void ObjectManager::loadStates(ExecutionState *startState) {
   auto DBStates = db->states_retrieve();
+  if (DBStates.empty()) {
+    addState(startState);
+    setAction(new ForwardAction(nullptr));
+    updateResult();
+    return;
+  }
   for (auto node : DBStates) {
     
     ExecutionState *newState = nullptr;
@@ -690,7 +696,18 @@ void ObjectManager::loadStates(ExecutionState *startState) {
     
     newState->node.countInstrs = node.second.countInstr;
     newState->node.executionPath = node.second.choiceBranch;
-    // newState->executionPath = newState->node.executionPath;
+    auto choiceBranch = node.second.choiceBranch;
+    size_t size = 0;
+    std::string choice;
+    while (size < choiceBranch.size()) {
+      if (choiceBranch[size] != ',') {
+        choice += choiceBranch[size];
+      } else {
+        newState->node.choiceBranch.push_back(choice);
+        choice = "";
+      }
+      size++;
+    }
    
     size_t index = 0;
     while (index < node.second.solverResult.size()) {

@@ -301,7 +301,7 @@ private:
   void executeInstruction(ExecutionState &state, KInstruction *ki);
 
   void seed(ExecutionState &initialState);
-  void setSearcher();
+  void setSearcher(SearcherConfig cfg);
   void run(ExecutionState &initialState);
 
   // Given a concrete object in our [klee's] address space, add it to
@@ -540,7 +540,7 @@ private:
   bool shouldExitOn(enum TerminateReason termReason);
 
   // remove state from queue and delete
-  void terminateState(ExecutionState &state);
+  void terminateState(ExecutionState &state, bool terminated = true);
   // call exit handler and terminate state
   void terminateStateEarly(ExecutionState &state, const llvm::Twine &message);
   // call exit handler and terminate state

@@ -1032,8 +1032,8 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
     if (solverResult == Solver::True) {
       if (!isInternal) {
         auto choice = current.node.getChoice();
-        assert(choice == '1');
-        current.executionPath += "1";
+        assert(choice == "1");
+        current.executionPath += "1,";
         if (pathWriter) {
           current.pathOS << "1";
         }
@@ -1043,8 +1043,8 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
     } else if (solverResult == Solver::False) {
       if (!isInternal) {
         auto choice = current.node.getChoice();
-        assert(choice == '0');
-        current.executionPath += "0";
+        assert(choice == "0");
+        current.executionPath += "0,";
         if (pathWriter) {
           current.pathOS << "0";
         }
@@ -1055,8 +1055,11 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
 
       current.depth++;
       auto choice = current.node.getChoice();
-      if (choice == '1') {
-        current.executionPath += "1";
+      if (choice == "1") {
+        current.steppedInstrLastFork = 0;
+        auto saved_expr = current.node.getExpr();
+        
+        current.executionPath += "1,";
         if (!isInternal) {
           if (pathWriter) {
             current.pathOS << "1";
@@ -1068,10 +1071,14 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
         addConstraint(current, condition);
         current.appendSolverResult(solverResult);
         return StatePair(&current, 0);
-      } else if (choice == '0') {
+      } else if (choice == "0") {
+        stats::instructions += (-current.steppedInstrLastFork);
+        current.steppedInstrLastFork = 0;
+        auto saved_expr = current.node.getExpr();
+
         current.coveredNew = false;
         current.coveredLines.clear();
-        current.executionPath += "0";
+        current.executionPath += "0,";
         if (!isInternal) {
           if (pathWriter) {
             current.pathOS << "0";
@@ -1214,7 +1221,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
   // search ones. If that makes sense.
   if (res == Solver::True) {
     if (!isInternal) {
-      current.executionPath += "1";
+      current.executionPath += "1,";
       if (pathWriter) {
         current.pathOS << "1";
       }
@@ -1224,7 +1231,7 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
     return StatePair(&current, 0);
   } else if (res == Solver::False) {
     if (!isInternal) {
-      current.executionPath += "0";
+      current.executionPath += "0,";
       if (pathWriter) {
         current.pathOS << "0";
       }
@@ -1239,6 +1246,8 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
     ++stats::forks;
 
     falseState = objectManager.branchState(trueState);
+
+    trueState->steppedInstrLastFork = 0;
 
     if (it != seedMap->end()) {
       std::vector<SeedInfo> seeds = it->second;
@@ -1280,8 +1289,8 @@ Executor::StatePair Executor::fork(ExecutionState &current, ref<Expr> condition,
 
     processForest->attach(current.ptreeNode, falseState, trueState);
 
-    trueState->executionPath += "1";
-    falseState->executionPath += "0";
+    trueState->executionPath += "1,";
+    falseState->executionPath += "0,";
     if (pathWriter) {
       // Need to update the pathOS.id field of falseState, otherwise the same id
       // is used for both falseState and trueState.
@@ -1556,6 +1565,7 @@ void Executor::stepInstruction(ExecutionState &state) {
   }
 
   ++state.steppedInstructions;
+  ++state.steppedInstrLastFork;
   if (isa<LoadInst>(state.pc->inst) || isa<StoreInst>(state.pc->inst))
     ++state.steppedMemoryInstructions;
   state.prevPC = state.pc;
@@ -2430,13 +2440,49 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       expressions.push_back(errorCase);
     }
 
+    if (reExecutionMode) {
+      auto choice = state.node.getChoice();
+      if (result) {
+        if (choice == "0") {
+          terminateStateOnExecError(state, "indirectbr: illegal label address");
+          break;
+        }
+        expressions.pop_back();
+
+      } 
+
+      assert(targets.size() == expressions.size());
+      auto saved_expr = state.node.getExpr();
+      for (std::vector<ref<Expr>>::size_type k = 0; k < expressions.size();
+           ++k) {
+        assert(choice == "1");
+        ref<Expr> expr = expressions[k];
+        if (saved_expr.compare(expr)) {
+          // hnjm,
+          KInstruction *inst = state.node.constraints.getLocation(expr);
+          if (inst==ki) {
+            addConstraint(state, expr);
+            transferToBasicBlock(targets[k], bi->getParent(), state);
+            break;
+          }
+          // detect dev
+        }
+          // detect dev
+      }
+      
+
+      break;
+    }
+
     // fork states
     std::vector<ExecutionState *> branches;
     branch(state, expressions, branches);
 
     // terminate error state
     if (result) {
-      terminateStateOnExecError(*branches.back(),
+      auto terminateState = branches.back();
+      terminateState->executionPath += "0,";
+      terminateStateOnExecError(*terminateState,
                                 "indirectbr: illegal label address");
       branches.pop_back();
     }
@@ -2446,7 +2492,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     for (std::vector<ExecutionState *>::size_type k = 0; k < branches.size();
          ++k) {
       if (branches[k]) {
-        transferToBasicBlock(targets[k], bi->getParent(), *branches[k]);
+        auto nextState = branches[k];
+        nextState->executionPath += "1,"; 
+        transferToBasicBlock(targets[k], bi->getParent(), *nextState);
       }
     }
 
@@ -3852,12 +3900,15 @@ std::string Executor::getAddressInfo(ExecutionState &state,
   return info.str();
 }
 
-void Executor::terminateState(ExecutionState &state) {
+void Executor::terminateState(ExecutionState &state, bool terminated) {
   if (replayKTest && replayPosition != replayKTest->numObjects) {
     klee_warning_once(replayKTest,
                       "replay did not consume all objects in test input.");
   }
 
+  if (!reExecutionMode) {
+    objectManager.saveState(state, terminated);
+  }
   objectManager.removeState(&state);
   if (!state.isIsolated())
     interpreterHandler->incPathsExplored();
@@ -3866,27 +3917,27 @@ void Executor::terminateState(ExecutionState &state) {
 void Executor::terminateStateEarly(ExecutionState &state,
                                    const Twine &message) {
   // objectManager.saveState(state, false);
-  if (!reExecutionMode) {
-    objectManager.saveState(state, false);
-  }
+  // if (!reExecutionMode) {
+  //   objectManager.saveState(state, false);
+  // }
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
        (AlwaysOutputSeeds && seedMap->count(&state))))
     interpreterHandler->processTestCase(state, (message + "\n").str().c_str(),
                                         "early");
-  terminateState(state);
+  terminateState(state, false);
 }
 
 void Executor::terminateStateOnExit(ExecutionState &state) {
-  if (!reExecutionMode) {
-    objectManager.saveState(state, true);
-  }
+  // if (!reExecutionMode) {
+  //   objectManager.saveState(state, true);
+  // }
   if (!state.isIsolated() &&
       (!OnlyOutputStatesCoveringNew || state.coveredNew ||
        (AlwaysOutputSeeds && seedMap->count(&state))))
     interpreterHandler->processTestCase(state, 0, 0);
   actionBeforeStateTerminating(state, TerminateReason::Model);
-  terminateState(state);
+  terminateState(state, true);
 }
 
 // don't use
@@ -3895,7 +3946,7 @@ void Executor::terminateStateOnTerminator(ExecutionState &state) {
       (AlwaysOutputSeeds && seedMap->count(&state)))
     interpreterHandler->processTestCase(state, 0, 0);
   actionBeforeStateTerminating(state, TerminateReason::Model);
-  terminateState(state);
+  terminateState(state, true);
 }
 
 const InstructionInfo &
@@ -3959,6 +4010,9 @@ void Executor::terminateStateOnError(ExecutionState &state,
                                      enum TerminateReason termReason,
                                      const char *suffix,
                                      const llvm::Twine &info) {
+  // if (!reExecutionMode) {
+  //   objectManager.saveState(state, false);
+  // }
   std::string message = messaget.str();
   static std::set<std::pair<Instruction *, std::string>> emittedErrors;
   Instruction *lastInst;
@@ -4004,7 +4058,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
   }
 
   actionBeforeStateTerminating(state, TerminateReason::ReportError);
-  terminateState(state);
+  terminateState(state, false);
 
   if (shouldExitOn(termReason))
     haltExecution = true;
@@ -4960,6 +5014,8 @@ void Executor::runFunctionAsMain(Function *f, int argc, char **argv,
 
   processForest = std::make_unique<PForest>();
   objectManager.subscribeAfterAll(processForest.get());
+  state->backwardStepsLeftCounter = 0;
+  state->failedBackwardStepsCounter = 0;
   processForest->addRoot(state);
   bindModuleConstants();
   run(*state);
@@ -5556,6 +5612,7 @@ void Executor::reExecutionStates() {
         if (reExState->node.path.getBlock(indexPath) !=
             reExState->path.getFinalBlock()) {
           // detect devergence and delete from db
+          assert("detect dev");
           reExState->transferToBB = false;
           reExecution = false;
         }
@@ -5576,7 +5633,7 @@ void Executor::reExecutionStates() {
               objectManager.addReExecutionState(reExState);
             }
           } else {
-            // detect devergence and delete from db
+            assert("detect dev");
           }
           reExecution = false;
         }
@@ -5599,10 +5656,10 @@ bool Executor::checkSafeguardingData(ExecutionState *state) {
   }
 }
 
-void Executor::setSearcher() {
-  SearcherConfig cfg;
-  cfg.executor = this;
-  cfg.objectManager = &objectManager;
+void Executor::setSearcher(SearcherConfig cfg) {
+  // SearcherConfig cfg;
+  // cfg.executor = this;
+  // cfg.objectManager = &objectManager;
 
   if (ExecutionMode == ExecutionKind::Forward) {
     searcher = std::make_unique<ForwardOnlySearcher>(cfg);
@@ -5619,11 +5676,15 @@ void Executor::run(ExecutionState &state) {
 
   objectManager.setInitialAndEmtySt(&state);
   
+  SearcherConfig cfg;
+  cfg.executor = this;
+  cfg.objectManager = &objectManager;
+  
   if (SummaryDB != "") {
   
     reExecutionMode = true;
     objectManager.loadAllFromDB(&state);
-    setSearcher();
+    setSearcher(cfg);
     reExecutionStates();
     objectManager.setPropagations();
 
@@ -5640,7 +5701,7 @@ void Executor::run(ExecutionState &state) {
     objectManager.setAction(new ForwardAction(nullptr));
     objectManager.updateResult();
 
-    setSearcher();
+    setSearcher(cfg);
   }
 
   while (!haltExecution) {

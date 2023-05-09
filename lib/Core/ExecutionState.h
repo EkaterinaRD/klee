@@ -207,6 +207,8 @@ struct Node {
   std::set<Target> targets;
   bool reached = false;
 
+  std::vector<std::string> choiceBranch;
+
   size_t indexSolverResult = 0;
   size_t indexConstraints = 0;
   size_t indexChoiceBranch = 0;
@@ -215,7 +217,7 @@ struct Node {
   void addConstraint(ref<Expr> e, KInstruction *loc, bool *sat = 0);
   Solver::Validity getSolverResult();
   ref<Expr> getExpr();
-  char getChoice();
+  std::string getChoice();
   void clearNode();
 
   std::string getValues();
@@ -321,6 +323,8 @@ public:
   /// @brief Counts how many instructions were executed since the last new
   /// instruction was covered.
   std::uint32_t instsSinceCovNew;
+
+  std::uint64_t steppedInstrLastFork = 0;
 
   /// @brief Keep track of unwinding state while unwinding, otherwise empty
   std::unique_ptr<UnwindingInformation> unwindingInformation;

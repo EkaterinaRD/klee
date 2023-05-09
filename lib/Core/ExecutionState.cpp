@@ -107,9 +107,10 @@ ref<Expr> Node::getExpr() {
   return expr;
 }
 
-char Node::getChoice() {
+std::string Node::getChoice() {
   indexChoiceBranch++;
-  char choice = executionPath[indexChoiceBranch - 1];
+  // char choice = executionPath[indexChoiceBranch - 1];
+  std::string choice = choiceBranch[indexChoiceBranch - 1];
   return choice; 
 }
 
