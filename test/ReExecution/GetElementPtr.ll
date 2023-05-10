@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -f -o %t1.bc
 ; RUN: rm -rf %t.klee-out1
 ; RUN: rm -rf %t.klee-out2
-; RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward --write-to-db --optimize=false %t1.bc > %t2
-; RUN: %klee --output-dir=%t.klee-out2 --execution-mode=forward --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 --optimize=false %t1.bc > %t3
+; RUN: %klee --output-dir=%t.klee-out1 --do-backward-first --write-to-db --optimize=false %t1.bc > %t2
+; RUN: %klee --output-dir=%t.klee-out2 --do-backward-first --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 --optimize=false %t1.bc > %t3
 ; RUN: grep PASS %t3
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"

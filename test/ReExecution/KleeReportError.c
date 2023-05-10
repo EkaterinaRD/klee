@@ -1,8 +1,8 @@
 // RUN: %clang %s -g -emit-llvm %O0opt -c -o %t2.bc
 // RUN: rm -rf %t.klee-out1
 // RUN: rm -rf %t.klee-out2
-// RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward --write-to-db --emit-all-errors %t2.bc 2>&1
-// RUN: %klee --output-dir=%t.klee-out2 --execution-mode=forward --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 --emit-all-errors  %t2.bc 2>&1 | FileCheck %s
+// RUN: %klee --output-dir=%t.klee-out1 --do-backward-first --write-to-db --emit-all-errors %t2.bc 2>&1
+// RUN: %klee --output-dir=%t.klee-out2 --do-backward-first --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 --emit-all-errors  %t2.bc 2>&1 | FileCheck %s
 // RUN: ls %t.klee-out2/ | grep .my.err | wc -l | grep 2
 #include <assert.h>
 #include <stdio.h>

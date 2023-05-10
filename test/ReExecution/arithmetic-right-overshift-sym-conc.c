@@ -1,8 +1,8 @@
 // RUN: %clang %s -emit-llvm -g %O0opt -c -o %t.bc
 // RUN: rm -rf %t.klee-out1
 // RUN: rm -rf %t.klee-out2
-// RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward -use-cex-cache=1 -check-overshift=0 --write-to-db %t.bc
-// RUN: %klee --output-dir=%t.klee-out2 --execution-mode=forward -use-cex-cache=1 -check-overshift=0 --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t.bc
+// RUN: %klee --output-dir=%t.klee-out1 --do-backward-first -use-cex-cache=1 -check-overshift=0 --write-to-db %t.bc
+// RUN: %klee --output-dir=%t.klee-out2 --do-backward-first -use-cex-cache=1 -check-overshift=0 --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t.bc
 // RUN: not grep "ASSERTION FAIL" %t.klee-out2/messages.txt
 // RUN: grep "KLEE: done: explored paths = 1" %t.klee-out2/info
 #include <stdio.h>

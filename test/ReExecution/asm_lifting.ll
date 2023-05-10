@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -f -o %t1.bc
 ; RUN: rm -rf %t.klee-out1
 ; RUN: rm -rf %t.klee-out2
-; RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward --optimize=false --write-to-db %t1.bc
-; RUN: %klee --output-dir=%t.klee-out2 --execution-mode=forward --optimize=false --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t1.bc
+; RUN: %klee --output-dir=%t.klee-out1 --do-backward-first --optimize=false --write-to-db %t1.bc
+; RUN: %klee --output-dir=%t.klee-out2 --do-backward-first --optimize=false --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t1.bc
 ; RUN: FileCheck %s --input-file=%t.klee-out2/assembly.ll
 
 define i32 @asm_free() nounwind {
