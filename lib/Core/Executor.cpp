@@ -2516,7 +2516,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 #else
       unsigned index = si->findCaseValue(ci).getSuccessorIndex();
 #endif
-      state.executionPath += std::to_string(index);
+      state.executionPath += std::to_string(index) + ",";
       transferToBasicBlock(si->getSuccessor(index), si->getParent(), state);
     } else {
       // Handle possible different branch targets
@@ -2622,7 +2622,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
            it != ie; ++it) {
         ExecutionState *es = *bit;
         if (es) {
-          es->executionPath += std::to_string(caseNumber[*it]);
+          es->executionPath += std::to_string(caseNumber[*it]) + ",";
           transferToBasicBlock(*it, bb, *es);
         }
         ++bit;
@@ -5624,7 +5624,8 @@ void Executor::reExecutionStates() {
           if (checkSafeguardingData(reExState)) {
             if (reExState->node.terminated) {
               if (!reExState->isIsolated()) {
-                terminateStateOnExit(*reExState);
+                if (reExState->prevPC->inst->getOpcode() != Instruction::Call)
+                  terminateStateOnExit(*reExState);
                 objectManager.updateResult();
               } else {
                 objectManager.addReExecutionState(reExState);

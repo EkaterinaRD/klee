@@ -396,8 +396,10 @@ GuidedSearcher::GuidedSearcher(std::unique_ptr<ForwardSearcher> _baseSearcher,
 ExecutionState &GuidedSearcher::selectState() {
   unsigned size = targetedSearchers.size();
   index = (index + 1) % (size + 1);
-  if (reachingEnough && index == size)
-    return baseSearcher->selectState();
+  if (reachingEnough && index == size) {
+    ExecutionState &state = baseSearcher->selectState(); 
+    return state;
+  }
   else {
     index = index % size;
     auto it = targetedSearchers.begin();
@@ -658,7 +660,8 @@ ExecutionState &RandomPathSearcher::selectState() {
     }
   }
 
-  return *n->state;
+  ExecutionState &state = *n->state;
+  return state;
 }
 
 void RandomPathSearcher::update(ExecutionState *current,
@@ -908,7 +911,8 @@ InterleavedSearcher::InterleavedSearcher(const std::vector<ForwardSearcher*> &_s
 ExecutionState &InterleavedSearcher::selectState() {
   ForwardSearcher *s = searchers[--index].get();
   if (index == 0) index = searchers.size();
-  return s->selectState();
+  ExecutionState &state = s->selectState();
+  return state;
 }
 
 void InterleavedSearcher::update(ExecutionState *current,

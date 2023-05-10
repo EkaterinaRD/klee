@@ -1,7 +1,9 @@
 // RUN: %clang -emit-llvm -g -c %s -o %t.bc
-// RUN: rm -rf %t.klee-out
-// RUN: %klee --output-dir=%t.klee-out %t.bc > %t.log
-// RUN: grep "3.30* -1.10* 2.420*" %t.log
+// RUN: rm -rf %t.klee-out1
+// RUN: rm -rf %t.klee-out2
+// RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward --write-to-db  %t.bc > %t.log1
+// RUN: %klee --output-dir=%t.klee-out2 --execution-mode=forward --write-to-db --summary-db=%t.klee-out1/summary.sqlite3  %t.bc > %t.log2
+// RUN: grep "3.30* -1.10* 2.420*" %t.log2
 
 #include <stdio.h>
 

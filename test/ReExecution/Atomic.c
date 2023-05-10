@@ -1,8 +1,8 @@
 // RUN: %clang %s -emit-llvm -g -c -o %t.bc
 // RUN: rm -rf %t.klee-out1
 // RUN: rm -rf %t.klee-out2
-// RUN: %klee --output-dir=%t.klee-out1 --exit-on-error --write-to-db %t.bc 2>%t.log1
-// RUN: %klee --output-dir=%t.klee-out2 --exit-on-error --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t.bc 2>%t.log2
+// RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward --exit-on-error --write-to-db %t.bc 2>%t.log1
+// RUN: %klee --output-dir=%t.klee-out2 --execution-mode=forward --exit-on-error --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t.bc 2>%t.log2
 // RUN: cat %t.klee-out2/assembly.ll | FileCheck %s
 
 // Checks that KLEE lowers atomic instructions to non-atomic operations

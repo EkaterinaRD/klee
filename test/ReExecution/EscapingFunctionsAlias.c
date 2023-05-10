@@ -3,8 +3,8 @@
 // RUN: %clang -emit-llvm %O0opt -g -c %s -o %t.bc
 // RUN: rm -rf %t.klee-out1
 // RUN: rm -rf %t.klee-out2
-// RUN: %klee --output-dir=%t.klee-out1 --write-to-db %t.bc 2> %t.log1
-// RUN: %klee -debug-print-escaping-functions --output-dir=%t.klee-out2 --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t.bc 2> %t.log2
+// RUN: %klee --output-dir=%t.klee-out1 --execution-mode=forward --write-to-db %t.bc 2> %t.log1
+// RUN: %klee -debug-print-escaping-functions --output-dir=%t.klee-out2 --execution-mode=forward --write-to-db --summary-db=%t.klee-out1/summary.sqlite3 %t.bc 2> %t.log2
 // RUN: FileCheck --input-file=%t.log2 %s
 
 #include <stdint.h>
